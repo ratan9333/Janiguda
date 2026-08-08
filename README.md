@@ -1,7 +1,9 @@
 # Small World Prototype
 
-An asset-free Godot 4 prototype with a small 3D environment, third-person movement,
-cigarette pickups, inventory, and a simple smoke particle interaction.
+An asset-free Godot 4 prototype set in the fictional Indian neighbourhood of
+Janiguda. It includes an explorable road network, Indian shops and signage,
+an enterable apartment, an NPC, inventory, money, cigarette purchasing, and a
+simple smoke particle interaction.
 
 ## Run
 

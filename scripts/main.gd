@@ -41,43 +41,75 @@ func setup_input() -> void:
 func build_environment() -> void:
 	var environment := WorldEnvironment.new()
 	var settings := Environment.new()
-	settings.background_mode = Environment.BG_COLOR
-	settings.background_color = Color("87b9d8")
+	settings.background_mode = Environment.BG_SKY
+	var sky := Sky.new()
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = Color("4f9bd1")
+	sky_material.sky_horizon_color = Color("d7e7e7")
+	sky_material.ground_bottom_color = Color("6d725e")
+	sky_material.ground_horizon_color = Color("d7e7e7")
+	sky_material.sun_angle_max = 18.0
+	sky.sky_material = sky_material
+	settings.sky = sky
 	settings.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	settings.ambient_light_color = Color("b8d3e6")
-	settings.ambient_light_energy = 0.65
+	settings.ambient_light_color = Color("c7d3d5")
+	settings.ambient_light_energy = 0.72
 	settings.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	environment.environment = settings
 	add_child(environment)
 
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-55, -35, 0)
-	sun.light_energy = 1.1
+	sun.rotation_degrees = Vector3(-48, -32, 0)
+	sun.light_color = Color("fff0d2")
+	sun.light_energy = 1.2
 	sun.shadow_enabled = true
 	add_child(sun)
 
 
 func build_world() -> void:
-	add_box("Ground", Vector3(30, 0.3, 30), Vector3(0, -0.15, 0), Color("79a960"), true)
-	add_box("Road", Vector3(30, 0.06, 4.5), Vector3(0, 0.03, 0), Color("3f4650"), false)
-	add_box("NorthSidewalk", Vector3(30, 0.12, 1.2), Vector3(0, 0.06, -2.8), Color("c8c1b4"), false)
-	add_box("SouthSidewalk", Vector3(30, 0.12, 1.2), Vector3(0, 0.06, 2.8), Color("c8c1b4"), false)
-	for x in range(-13, 14, 4):
-		add_box("RoadLine", Vector3(2.0, 0.03, 0.12), Vector3(x, 0.07, 0), Color("eadb76"), false)
+	add_box("Ground", Vector3(80, 0.3, 70), Vector3(0, -0.15, 0), Color("78945d"), true)
+	build_roads()
 
 	build_apartment()
 	build_shop()
 	build_warehouse()
 	build_park()
+	build_extended_neighbourhood()
+	build_street_details()
 
-	add_box("WallNorth", Vector3(30, 1.2, 0.4), Vector3(0, 0.6, -15), Color("d9d0bd"), true)
-	add_box("WallSouth", Vector3(30, 1.2, 0.4), Vector3(0, 0.6, 15), Color("d9d0bd"), true)
-	add_box("WallWest", Vector3(0.4, 1.2, 30), Vector3(-15, 0.6, 0), Color("d9d0bd"), true)
-	add_box("WallEast", Vector3(0.4, 1.2, 30), Vector3(15, 0.6, 0), Color("d9d0bd"), true)
+	add_box("BoundaryNorth", Vector3(80, 1.4, 0.4), Vector3(0, 0.7, -35), Color("cdbf9f"), true)
+	add_box("BoundarySouth", Vector3(80, 1.4, 0.4), Vector3(0, 0.7, 35), Color("cdbf9f"), true)
+	add_box("BoundaryWest", Vector3(0.4, 1.4, 70), Vector3(-40, 0.7, 0), Color("cdbf9f"), true)
+	add_box("BoundaryEast", Vector3(0.4, 1.4, 70), Vector3(40, 0.7, 0), Color("cdbf9f"), true)
+
+
+func build_roads() -> void:
+	var asphalt := Color("41454a")
+	var pavement := Color("bbb4a5")
+	add_box("MainRoad", Vector3(80, 0.06, 7.0), Vector3(0, 0.03, 0), asphalt, false)
+	add_box("CrossRoad", Vector3(7.0, 0.065, 70), Vector3(18, 0.035, 0), asphalt, false)
+	add_box("WestLane", Vector3(5.0, 0.065, 30), Vector3(-23, 0.035, 16), Color("565454"), false)
+	add_box("NorthLane", Vector3(34, 0.065, 4.5), Vector3(1, 0.035, -21), Color("565454"), false)
+	add_box("MainWalkNorth", Vector3(80, 0.14, 1.4), Vector3(0, 0.07, -4.2), pavement, false)
+	add_box("MainWalkSouth", Vector3(80, 0.14, 1.4), Vector3(0, 0.07, 4.2), pavement, false)
+	add_box("CrossWalkWest", Vector3(1.4, 0.14, 70), Vector3(13.8, 0.07, 0), pavement, false)
+	add_box("CrossWalkEast", Vector3(1.4, 0.14, 70), Vector3(22.2, 0.07, 0), pavement, false)
+	for x in range(-37, 39, 6):
+		add_box("MainRoadMark", Vector3(3.0, 0.025, 0.13), Vector3(x, 0.075, 0), Color("e4d37c"), false)
+	for z in range(-31, 33, 6):
+		add_box("CrossRoadMark", Vector3(0.13, 0.025, 3.0), Vector3(18, 0.08, z), Color("e4d37c"), false)
+	# Zebra crossing and familiar painted speed breakers.
+	for x in range(11, 26, 2):
+		add_box("Zebra", Vector3(0.9, 0.025, 3.0), Vector3(x, 0.09, 0), Color("ece9df"), false)
+	for x in [-7.0, -6.5, -6.0, -5.5]:
+		add_box("SpeedBreaker", Vector3(0.35, 0.10, 7.0), Vector3(x, 0.10, 0), Color("d8c545") if int(x * 2) % 2 == 0 else Color("e8e4d8"), false)
+	# Asphalt repair patches stop the roads looking perfectly artificial.
+	add_box("RoadPatch", Vector3(3.0, 0.018, 1.6), Vector3(-29, 0.073, 1.7), Color("34373b"), false)
+	add_box("RoadPatch", Vector3(1.8, 0.018, 2.8), Vector3(19.5, 0.078, -13), Color("34373b"), false)
 
 
 func build_apartment() -> void:
-	var wall := Color("d97862")
+	var wall := Color("d78469")
 	add_box("ApartmentFloor", Vector3(6, 0.15, 5), Vector3(0, 0.08, -9), Color("d8c8ad"), true)
 	add_box("ApartmentBack", Vector3(6, 3.2, 0.3), Vector3(0, 1.6, -11.5), wall, true)
 	add_box("ApartmentLeft", Vector3(0.3, 3.2, 5), Vector3(-3, 1.6, -9), wall, true)
@@ -88,13 +120,21 @@ func build_apartment() -> void:
 	add_box("ApartmentDoorTop", Vector3(1.6, 0.65, 0.3), Vector3(0, 2.875, -6.5), wall, true)
 	add_box("ApartmentRoof", Vector3(6.3, 0.2, 5.3), Vector3(0, 3.3, -9), Color("75483d"), true)
 	add_box("Bed", Vector3(1.5, 0.45, 2.2), Vector3(-1.7, 0.3, -10), Color("e5e1d5"), true)
-	add_world_label("APARTMENT", Vector3(0, 3.8, -6.3), Color.WHITE)
+	add_box("ApartmentTable", Vector3(1.0, 0.65, 0.8), Vector3(1.7, 0.4, -10.2), Color("785238"), true)
+	add_box("ApartmentWindowL", Vector3(1.0, 1.0, 0.05), Vector3(-1.9, 1.75, -6.31), Color("8dc1d4"), false)
+	add_box("ApartmentWindowR", Vector3(1.0, 1.0, 0.05), Vector3(1.9, 1.75, -6.31), Color("8dc1d4"), false)
+	add_box("ApartmentParapet", Vector3(6.4, 0.55, 0.2), Vector3(0, 3.62, -6.4), Color("f0d7b2"), true)
+	add_cylinder("WaterTank", 0.65, 1.25, Vector3(1.8, 4.0, -9.2), Color("25282b"), false)
+	add_world_label("JANIGUDA APARTMENTS", Vector3(0, 4.25, -6.2), Color.WHITE)
 
 
 func build_shop() -> void:
-	add_box("ShopBuilding", Vector3(5.2, 3.2, 4.2), Vector3(-9, 1.6, 5.3), Color("e2b956"), true)
+	add_box("ShopBuilding", Vector3(5.2, 3.2, 4.2), Vector3(-9, 1.6, 6.3), Color("e2b956"), true)
 	add_box("ShopAwning", Vector3(4.3, 0.25, 1.0), Vector3(-9, 2.25, 3.0), Color("bd4c43"), true)
-	add_world_label("CORNER SHOP", Vector3(-9, 2.8, 3.15), Color("fff1ba"))
+	add_box("ShopShutter", Vector3(2.4, 2.1, 0.10), Vector3(-9, 1.1, 4.15), Color("637d88"), false)
+	add_box("ShopCrateL", Vector3(0.65, 0.65, 0.65), Vector3(-10.8, 0.35, 3.7), Color("8e603d"), true)
+	add_box("ShopCrateR", Vector3(0.65, 0.9, 0.65), Vector3(-10.1, 0.48, 3.7), Color("8e603d"), true)
+	add_world_label("किराना • JANIGUDA KIRANA", Vector3(-9, 2.85, 3.95), Color("fff1ba"))
 
 	var counter := Area3D.new()
 	counter.name = "ShopCounter"
@@ -109,20 +149,131 @@ func build_shop() -> void:
 
 
 func build_warehouse() -> void:
-	add_box("Warehouse", Vector3(6.2, 4.0, 5.0), Vector3(8.5, 2.0, 5.5), Color("6b7f8e"), true)
+	add_box("Warehouse", Vector3(6.2, 4.0, 5.0), Vector3(8.5, 2.0, 6.3), Color("6b7f8e"), true)
 	add_box("WarehouseDoor", Vector3(2.8, 2.8, 0.12), Vector3(8.5, 1.4, 2.95), Color("343b42"), false)
-	add_world_label("WAREHOUSE", Vector3(8.5, 3.35, 2.85), Color.WHITE)
+	add_box("WarehouseVent", Vector3(0.9, 0.6, 0.1), Vector3(6.3, 3.0, 3.74), Color("29333b"), false)
+	add_world_label("JANIGUDA GODOWN", Vector3(8.5, 3.45, 3.65), Color.WHITE)
 
 
 func build_park() -> void:
-	add_box("ParkPath", Vector3(4.0, 0.05, 6.0), Vector3(0, 0.03, 10.5), Color("c6b898"), false)
-	add_box("BenchSeat", Vector3(2.2, 0.18, 0.55), Vector3(2.2, 0.65, 9.5), Color("805a38"), true)
-	add_box("BenchBack", Vector3(2.2, 0.8, 0.15), Vector3(2.2, 1.0, 9.75), Color("805a38"), true)
-	add_tree(Vector3(-4.5, 0, 9.0))
-	add_tree(Vector3(5.0, 0, 11.5))
-	add_tree(Vector3(-3.0, 0, 13.0))
-	add_world_label("PARK", Vector3(0, 2.1, 8.0), Color("efffdf"))
-	build_npc(Vector3(-1.8, 1.0, 10.0))
+	add_box("ParkLawn", Vector3(17, 0.08, 13), Vector3(1, 0.02, 18), Color("6c9d57"), false)
+	add_box("ParkPath", Vector3(3.0, 0.06, 13), Vector3(1, 0.07, 18), Color("c6b898"), false)
+	add_box("ParkCrossPath", Vector3(17, 0.06, 2.0), Vector3(1, 0.075, 18), Color("c6b898"), false)
+	add_box("BenchSeat", Vector3(2.2, 0.18, 0.55), Vector3(4.5, 0.65, 15.0), Color("805a38"), true)
+	add_box("BenchBack", Vector3(2.2, 0.8, 0.15), Vector3(4.5, 1.0, 15.25), Color("805a38"), true)
+	add_box("ParkFenceNorth", Vector3(17, 0.65, 0.18), Vector3(1, 0.35, 11.5), Color("d8d0b8"), true)
+	add_tree(Vector3(-5.5, 0, 14.0))
+	add_tree(Vector3(7.0, 0, 14.5))
+	add_tree(Vector3(-4.0, 0, 22.0))
+	add_tree(Vector3(7.0, 0, 22.0))
+	add_world_label("नगर पार्क • NAGAR PARK", Vector3(1, 2.4, 11.2), Color("efffdf"))
+	build_npc(Vector3(-1.8, 1.0, 15.0))
+
+
+func build_extended_neighbourhood() -> void:
+	# Dense, varied blocks around the playable core create a believable Indian town.
+	add_detailed_building("Clinic", "जन सेवा CLINIC", Vector3(-18, 2.7, -9), Vector3(7, 5.4, 7), Color("d9e1d2"), 1.0)
+	add_detailed_building("Tailor", "RAJU TAILORS", Vector3(-28, 2.2, -8), Vector3(7, 4.4, 6), Color("68a6a0"), 1.0)
+	add_detailed_building("MobileShop", "MOBILE REPAIR", Vector3(-35, 2.0, 8), Vector3(6, 4, 6), Color("7e6ca8"), -1.0)
+	add_detailed_building("Pharmacy", "भारत MEDICALS", Vector3(-27, 2.4, 27), Vector3(7, 4.8, 7), Color("e4e5dc"), -1.0)
+	add_detailed_building("SouthHomes", "SHANTI NIVAS", Vector3(-11, 3.5, 29), Vector3(10, 7, 8), Color("d28f74"), -1.0)
+	add_detailed_building("EastFlats", "SAI RESIDENCY", Vector3(30, 5.0, 11), Vector3(10, 10, 10), Color("d6b98b"), -1.0)
+	add_detailed_building("EastMarket", "JANIGUDA MARKET", Vector3(31, 3.0, -12), Vector3(12, 6, 8), Color("c77a69"), 1.0)
+	add_detailed_building("School", "SARASWATI SCHOOL", Vector3(4, 4.2, -29), Vector3(17, 8.4, 8), Color("e1bc72"), 1.0)
+	add_detailed_building("NorthHomes", "GANGA HOMES", Vector3(-12, 4.0, -28), Vector3(10, 8, 8), Color("9bb5c5"), 1.0)
+	add_detailed_building("TeaHotel", "UDUPI HOTEL", Vector3(29, 2.5, 27), Vector3(9, 5, 8), Color("ce9d57"), -1.0)
+	build_chai_stall(Vector3(-22, 0, 7))
+	build_fruit_cart(Vector3(24, 0, -6))
+
+
+func add_detailed_building(node_name: String, sign_text: String, position: Vector3, size: Vector3, color: Color, front_z: float) -> void:
+	add_box(node_name, size, position, color, true)
+	var front := position.z + front_z * (size.z * 0.5 + 0.04)
+	add_box(node_name + "Door", Vector3(1.4, 2.2, 0.08), Vector3(position.x, 1.1, front), Color("4d3930"), false)
+	for floor_index in range(1, maxi(2, int(size.y / 2.5))):
+		var window_y := 1.5 + floor_index * 2.0
+		if window_y < size.y - 0.3:
+			add_box(node_name + "WindowL", Vector3(1.1, 0.9, 0.06), Vector3(position.x - size.x * 0.28, window_y, front), Color("77aebf"), false)
+			add_box(node_name + "WindowR", Vector3(1.1, 0.9, 0.06), Vector3(position.x + size.x * 0.28, window_y, front), Color("77aebf"), false)
+	add_box(node_name + "RoofTrim", Vector3(size.x + 0.25, 0.3, size.z + 0.25), Vector3(position.x, size.y + 0.15, position.z), color.lightened(0.18), true)
+	add_cylinder(node_name + "Tank", 0.7, 1.3, Vector3(position.x + size.x * 0.25, size.y + 0.85, position.z), Color("292d30"), false)
+	add_world_label(sign_text, Vector3(position.x, minf(size.y - 0.5, 3.3), front + front_z * 0.05), Color("fff4cc"))
+
+
+func build_street_details() -> void:
+	# Open concrete drains beside the main road.
+	add_box("NorthDrain", Vector3(80, 0.16, 0.42), Vector3(0, 0.04, -5.05), Color("55564f"), false)
+	add_box("SouthDrain", Vector3(80, 0.16, 0.42), Vector3(0, 0.04, 5.05), Color("55564f"), false)
+	for x in [-34, -24, -14, 2, 10, 27, 36]:
+		build_streetlight(Vector3(x, 0, -4.8))
+	for x in [-30, -18, -2, 8, 30]:
+		build_streetlight(Vector3(x, 0, 4.8))
+
+	# Power poles and overhead cables along the northern edge.
+	for x in [-34, -20, -6, 8, 22, 36]:
+		build_utility_pole(Vector3(x, 0, -5.7))
+	for x in [-27, -13, 1, 15, 29]:
+		add_box("PowerCable", Vector3(13.8, 0.035, 0.035), Vector3(x, 5.05, -5.7), Color("242424"), false)
+
+	build_auto_rickshaw(Vector3(-16, 0, 1.35))
+	build_scooter(Vector3(6.2, 0, -2.6))
+	build_scooter(Vector3(26, 0, 2.6))
+	# Concrete roadside barriers and hand-painted curb colors.
+	for x in range(-38, 39, 4):
+		var curb_color := Color("f2e9d1") if int(x / 4) % 2 == 0 else Color("202020")
+		add_box("Curb", Vector3(3.8, 0.18, 0.22), Vector3(x, 0.14, -4.75), curb_color, false)
+
+
+func build_streetlight(position: Vector3) -> void:
+	add_cylinder("LampPost", 0.09, 4.8, position + Vector3(0, 2.4, 0), Color("42484c"), false)
+	add_box("LampArm", Vector3(0.85, 0.08, 0.08), position + Vector3(0.38, 4.65, 0), Color("42484c"), false)
+	add_box("Lamp", Vector3(0.42, 0.16, 0.28), position + Vector3(0.78, 4.53, 0), Color("fff0aa"), false)
+
+
+func build_utility_pole(position: Vector3) -> void:
+	add_cylinder("UtilityPole", 0.13, 5.2, position + Vector3(0, 2.6, 0), Color("77736b"), true)
+	add_box("PoleCrossbar", Vector3(1.3, 0.12, 0.12), position + Vector3(0, 4.8, 0), Color("665f55"), false)
+	add_cylinder("InsulatorL", 0.06, 0.28, position + Vector3(-0.48, 5.0, 0), Color("d8d1c5"), false)
+	add_cylinder("InsulatorR", 0.06, 0.28, position + Vector3(0.48, 5.0, 0), Color("d8d1c5"), false)
+
+
+func build_chai_stall(position: Vector3) -> void:
+	add_box("ChaiCounter", Vector3(3.5, 1.15, 1.2), position + Vector3(0, 0.58, 0), Color("477a65"), true)
+	add_box("ChaiRoof", Vector3(4.2, 0.18, 2.8), position + Vector3(0, 2.65, 0), Color("3d6f91"), true)
+	for x in [-1.65, 1.65]:
+		add_box("ChaiPost", Vector3(0.12, 2.6, 0.12), position + Vector3(x, 1.3, 0), Color("5a4635"), true)
+	add_cylinder("TeaPot", 0.22, 0.35, position + Vector3(-0.7, 1.35, -0.15), Color("a7a7a0"), false)
+	add_world_label("चाय • CHAI ₹10", position + Vector3(0, 2.25, -1.45), Color("fff1b8"))
+
+
+func build_fruit_cart(position: Vector3) -> void:
+	add_box("FruitCart", Vector3(2.7, 0.28, 1.4), position + Vector3(0, 1.0, 0), Color("815632"), true)
+	for offset in [Vector3(-0.8, 1.35, -0.3), Vector3(0, 1.35, -0.3), Vector3(0.8, 1.35, -0.3), Vector3(-0.4, 1.35, 0.3), Vector3(0.4, 1.35, 0.3)]:
+		add_character_sphere(self, "Fruit", 0.2, position + offset, Color("e28b2f"))
+	var wheel_l := add_cylinder("CartWheel", 0.42, 0.16, position + Vector3(-0.9, 0.5, 0), Color("292929"), false)
+	wheel_l.rotation_degrees.z = 90
+	var wheel_r := add_cylinder("CartWheel", 0.42, 0.16, position + Vector3(0.9, 0.5, 0), Color("292929"), false)
+	wheel_r.rotation_degrees.z = 90
+	add_world_label("ताज़े फल • FRESH FRUIT", position + Vector3(0, 2.0, 0), Color("fff0c2"))
+
+
+func build_auto_rickshaw(position: Vector3) -> void:
+	add_box("AutoBody", Vector3(2.2, 1.05, 1.5), position + Vector3(0, 0.8, 0), Color("e3c62d"), true)
+	add_box("AutoCab", Vector3(1.25, 1.15, 1.42), position + Vector3(-0.35, 1.75, 0), Color("2e6b43"), false)
+	add_box("AutoRoof", Vector3(1.7, 0.16, 1.55), position + Vector3(-0.15, 2.38, 0), Color("1f2421"), false)
+	add_box("AutoWindshield", Vector3(0.08, 0.62, 1.1), position + Vector3(-1.01, 1.78, 0), Color("85b8c5"), false)
+	for wheel_position in [Vector3(-0.75, 0.42, -0.75), Vector3(-0.75, 0.42, 0.75), Vector3(0.78, 0.42, 0)]:
+		var wheel := add_cylinder("AutoWheel", 0.34, 0.18, position + wheel_position, Color("202020"), false)
+		wheel.rotation_degrees.x = 90
+
+
+func build_scooter(position: Vector3) -> void:
+	add_box("ScooterBody", Vector3(1.35, 0.38, 0.42), position + Vector3(0, 0.68, 0), Color("b94d46"), false)
+	add_box("ScooterSeat", Vector3(0.72, 0.16, 0.38), position + Vector3(0.18, 1.0, 0), Color("292929"), false)
+	add_box("ScooterHandle", Vector3(0.12, 0.9, 0.12), position + Vector3(-0.48, 1.15, 0), Color("555b5e"), false)
+	for x in [-0.52, 0.52]:
+		var wheel := add_cylinder("ScooterWheel", 0.28, 0.13, position + Vector3(x, 0.35, 0), Color("202020"), false)
+		wheel.rotation_degrees.x = 90
 
 
 func add_world_label(text: String, position: Vector3, color: Color) -> void:
@@ -157,6 +308,34 @@ func add_box(node_name: String, size: Vector3, position: Vector3, color: Color, 
 		var collider := CollisionShape3D.new()
 		var shape := BoxShape3D.new()
 		shape.size = size
+		collider.shape = shape
+		root.add_child(collider)
+	return root
+
+
+func add_cylinder(node_name: String, radius: float, height: float, position: Vector3, color: Color, collision: bool) -> Node3D:
+	var root: Node3D
+	if collision:
+		root = StaticBody3D.new()
+	else:
+		root = Node3D.new()
+	root.name = node_name
+	root.position = position
+	add_child(root)
+	var mesh_instance := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius
+	mesh.height = height
+	mesh.radial_segments = 12
+	mesh.material = make_material(color)
+	mesh_instance.mesh = mesh
+	root.add_child(mesh_instance)
+	if collision:
+		var collider := CollisionShape3D.new()
+		var shape := CylinderShape3D.new()
+		shape.radius = radius
+		shape.height = height
 		collider.shape = shape
 		root.add_child(collider)
 	return root
@@ -324,7 +503,7 @@ func build_ui() -> void:
 	layer.add_child(panel)
 
 	var title := Label.new()
-	title.text = "NEIGHBOURHOOD — VERSION 0.1"
+	title.text = "JANIGUDA — VERSION 0.1"
 	title.position = Vector2(34, 30)
 	title.add_theme_font_size_override("font_size", 20)
 	layer.add_child(title)
