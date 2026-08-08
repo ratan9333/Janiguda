@@ -3,12 +3,15 @@ extends Node3D
 const PLAYER_SCRIPT := preload("res://scripts/player.gd")
 const SHOP_SCRIPT := preload("res://scripts/shop.gd")
 const NPC_SCRIPT := preload("res://scripts/npc.gd")
+const GEOGRAPHIC_WORLD_SCRIPT := preload("res://scripts/geographic_world.gd")
+const BICYCLE_SCRIPT := preload("res://scripts/bicycle.gd")
 
 var player
 var status_label: Label
 var hint_label: Label
 var inventory_panel: ColorRect
 var inventory_label: Label
+var geographic_world
 
 
 func _ready() -> void:
@@ -16,6 +19,7 @@ func _ready() -> void:
 	build_environment()
 	build_world()
 	build_player()
+	build_spawn_bicycle()
 	build_ui()
 
 
@@ -26,6 +30,7 @@ func setup_input() -> void:
 		"move_left": KEY_A,
 		"move_right": KEY_D,
 		"jump": KEY_SPACE,
+		"run": KEY_SHIFT,
 		"inventory": KEY_I,
 		"interact": KEY_E,
 		"smoke": KEY_F,
@@ -36,6 +41,11 @@ func setup_input() -> void:
 		var key_event := InputEventKey.new()
 		key_event.physical_keycode = bindings[action]
 		InputMap.action_add_event(action, key_event)
+	if not InputMap.has_action("punch"):
+		InputMap.add_action("punch")
+	var punch_event := InputEventMouseButton.new()
+	punch_event.button_index = MOUSE_BUTTON_LEFT
+	InputMap.action_add_event("punch", punch_event)
 
 
 func build_environment() -> void:
@@ -53,7 +63,7 @@ func build_environment() -> void:
 	settings.sky = sky
 	settings.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	settings.ambient_light_color = Color("c7d3d5")
-	settings.ambient_light_energy = 0.72
+	settings.ambient_light_energy = 0.55
 	settings.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	environment.environment = settings
 	add_child(environment)
@@ -61,12 +71,56 @@ func build_environment() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, -32, 0)
 	sun.light_color = Color("fff0d2")
-	sun.light_energy = 1.2
+	sun.light_energy = 0.95
 	sun.shadow_enabled = true
 	add_child(sun)
 
 
 func build_world() -> void:
+	geographic_world = Node3D.new()
+	geographic_world.name = "GeographicWorld"
+	geographic_world.set_script(GEOGRAPHIC_WORLD_SCRIPT)
+	add_child(geographic_world)
+	geographic_world.generate()
+	build_geographic_gameplay()
+
+
+func build_geographic_gameplay() -> void:
+	build_gate_person()
+	# Jharaput is the mapped hamlet closest to the selected centre point.
+	var village: Vector3 = geographic_world.latlon_to_world(18.6907777, 82.8326193)
+	village.y = geographic_world.height_at(village.x, village.z)
+	var shop_position: Vector3 = village + Vector3(0, 0, -12)
+	add_box("GameplayKirana", Vector3(6, 3.2, 5), shop_position + Vector3(0, 1.6, 0), Color("d7ad55"), true)
+	add_box("GameplayShopFront", Vector3(3.2, 2.3, 0.10), shop_position + Vector3(0, 1.15, -2.55), Color("55747f"), false)
+	add_box("GameplayAwning", Vector3(5.0, 0.22, 1.2), shop_position + Vector3(0, 2.45, -3.0), Color("b84d41"), false)
+	add_world_label("किराना • JHARAPUT STORE", shop_position + Vector3(0, 3.0, -2.7), Color("fff1bd"))
+	var counter := Area3D.new()
+	counter.name = "GeographicShopCounter"
+	counter.set_script(SHOP_SCRIPT)
+	counter.position = shop_position + Vector3(0, 1.0, -3.2)
+	var counter_shape := CollisionShape3D.new()
+	var box_shape := BoxShape3D.new()
+	box_shape.size = Vector3(4.5, 2.0, 1.5)
+	counter_shape.shape = box_shape
+	counter.add_child(counter_shape)
+	add_child(counter)
+	var npc_position: Vector3 = village + Vector3(12, 1.0, 5)
+	npc_position.y = geographic_world.height_at(npc_position.x, npc_position.z) + 1.0
+	build_npc(npc_position)
+
+
+func build_gate_person() -> void:
+	var frame: Dictionary = geographic_world.nearest_primary_frame(Vector3.ZERO)
+	var direction: Vector3 = frame.direction
+	var east: Vector3 = frame.side
+	var gate_frame: Dictionary = geographic_world.nearest_primary_frame(direction * -7.5)
+	var position: Vector3 = gate_frame.point - east * 6.7
+	position.y = geographic_world.surface_height_at(position.x, position.z) + 1.0
+	build_npc(position, true)
+
+
+func build_fictional_world() -> void:
 	add_box("Ground", Vector3(80, 0.3, 70), Vector3(0, -0.15, 0), Color("78945d"), true)
 	build_roads()
 
@@ -357,10 +411,16 @@ func build_player() -> void:
 	player = CharacterBody3D.new()
 	player.name = "Player"
 	player.set_script(PLAYER_SCRIPT)
-	player.position = Vector3(0, 1.0, -5.0)
+	var spawn_height := 0.0
+	if geographic_world:
+		spawn_height = geographic_world.surface_height_at(0, 0)
+	# Local X/Z zero is the exact supplied coordinate: 18.690209, 82.834109.
+	player.position = Vector3(0, spawn_height + 1.0, 0)
 	player.rotation_degrees.y = 180.0
+	player.floor_snap_length = 0.45
 
 	var collider := CollisionShape3D.new()
+	collider.name = "CollisionShape3D"
 	var capsule_shape := CapsuleShape3D.new()
 	capsule_shape.radius = 0.42
 	capsule_shape.height = 1.8
@@ -373,6 +433,11 @@ func build_player() -> void:
 	camera_pivot.name = "CameraPivot"
 	# Tight, slightly elevated third-person framing similar to an action game.
 	camera_pivot.position.y = 1.15
+	if geographic_world:
+		# Begin by looking across Nandapur Road toward the photographed gate.
+		var spawn_frame: Dictionary = geographic_world.nearest_primary_frame(Vector3.ZERO)
+		var gate_direction: Vector3 = spawn_frame.side
+		camera_pivot.rotation.y = atan2(-gate_direction.x, -gate_direction.z)
 	player.add_child(camera_pivot)
 	var camera := Camera3D.new()
 	camera.name = "Camera3D"
@@ -385,6 +450,98 @@ func build_player() -> void:
 	# Add the fully assembled player last. Adding it earlier invokes player.gd's
 	# _ready() before CameraPivot exists, leaving its camera reference null.
 	add_child(player)
+
+
+func build_spawn_bicycle() -> void:
+	var bicycle := CharacterBody3D.new()
+	bicycle.name = "SpawnBicycle"
+	bicycle.set_script(BICYCLE_SCRIPT)
+	var frame: Dictionary = geographic_world.nearest_primary_frame(Vector3.ZERO)
+	var road_point: Vector3 = frame.point
+	var road_side: Vector3 = frame.side
+	var road_direction: Vector3 = frame.direction
+	# Player initially faces +Z; ensure the bicycle appears in front of the
+	# camera even when the OSM way's stored direction runs the opposite way.
+	if road_direction.dot(Vector3(0, 0, 1)) < 0.0:
+		road_direction = -road_direction
+		road_side = -road_side
+	# Keep the bicycle on the asphalt and clear of the roadside buildings.
+	var bicycle_position := road_point + road_direction * 4.2 + road_side * 1.2
+	bicycle_position.y = geographic_world.surface_height_at(bicycle_position.x, bicycle_position.z) + 0.62
+	bicycle.position = bicycle_position
+	bicycle.basis = Basis(road_side, Vector3.UP, -road_direction)
+
+	var collider := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(0.75, 1.5, 2.0)
+	collider.shape = shape
+	# Bottom of the collider aligns with the tyre contact point (~-0.55 m).
+	# This keeps wheel centres above ground after CharacterBody settling.
+	collider.position.y = 0.20
+	bicycle.add_child(collider)
+
+	var visual := Node3D.new()
+	visual.name = "BikeVisual"
+	bicycle.add_child(visual)
+	add_bicycle_wheel(visual, "FrontWheel", Vector3(0, 0, -0.92))
+	add_bicycle_wheel(visual, "RearWheel", Vector3(0, 0, 0.92))
+	add_bicycle_bar(visual, Vector3(0, 0.05, 0.78), Vector3(0, 0.72, 0.18), 0.055, Color("297aa2"))
+	add_bicycle_bar(visual, Vector3(0, 0.05, -0.78), Vector3(0, 0.72, 0.18), 0.055, Color("297aa2"))
+	add_bicycle_bar(visual, Vector3(0, 0.05, 0.78), Vector3(0, 0.05, -0.78), 0.05, Color("297aa2"))
+	add_bicycle_bar(visual, Vector3(0, 0.72, 0.18), Vector3(0, 0.05, -0.78), 0.05, Color("297aa2"))
+	add_bicycle_bar(visual, Vector3(0, 0.72, 0.18), Vector3(0, 1.10, -0.78), 0.045, Color("55595c"))
+	add_bicycle_bar(visual, Vector3(-0.42, 1.12, -0.82), Vector3(0.42, 1.12, -0.82), 0.04, Color("55595c"))
+	add_character_box(visual, "BicycleSeat", Vector3(0.36, 0.12, 0.48), Vector3(0, 0.82, 0.26), Color("252525"))
+	add_character_sphere(visual, "PedalHub", 0.13, Vector3(0, 0.36, 0.08), Color("55595c"))
+	add_child(bicycle)
+
+
+func add_bicycle_wheel(parent: Node3D, wheel_name: String, position: Vector3) -> void:
+	var wheel := MeshInstance3D.new()
+	wheel.name = wheel_name
+	var mesh := TorusMesh.new()
+	mesh.inner_radius = 0.48
+	mesh.outer_radius = 0.55
+	mesh.rings = 24
+	mesh.ring_segments = 10
+	var wheel_material := StandardMaterial3D.new()
+	wheel_material.albedo_color = Color("202020")
+	mesh.material = wheel_material
+	wheel.mesh = mesh
+	wheel.position = position
+	wheel.rotation_degrees.z = 90
+	parent.add_child(wheel)
+	var hub := MeshInstance3D.new()
+	var hub_mesh := CylinderMesh.new()
+	hub_mesh.top_radius = 0.10
+	hub_mesh.bottom_radius = 0.10
+	hub_mesh.height = 0.16
+	hub_mesh.radial_segments = 12
+	hub_mesh.material = make_material(Color("a7a7a2"))
+	hub.mesh = hub_mesh
+	wheel.add_child(hub)
+	for spoke_rotation in [0.0, 45.0, 90.0, 135.0]:
+		var spoke := MeshInstance3D.new()
+		var spoke_mesh := BoxMesh.new()
+		spoke_mesh.size = Vector3(1.02, 0.018, 0.025)
+		spoke_mesh.material = make_material(Color("b3b5b3"))
+		spoke.mesh = spoke_mesh
+		spoke.rotation_degrees.y = spoke_rotation
+		wheel.add_child(spoke)
+
+
+func add_bicycle_bar(parent: Node3D, start: Vector3, finish: Vector3, radius: float, color: Color) -> void:
+	var bar := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius
+	mesh.height = start.distance_to(finish)
+	mesh.radial_segments = 8
+	mesh.material = make_material(color)
+	bar.mesh = mesh
+	bar.position = (start + finish) * 0.5
+	bar.quaternion = Quaternion(Vector3.UP, (finish - start).normalized())
+	parent.add_child(bar)
 
 
 func build_stylized_character(character: Node3D) -> void:
@@ -474,12 +631,12 @@ func add_character_sphere(parent: Node3D, node_name: String, radius: float, posi
 	return part
 
 
-func build_npc(position: Vector3) -> void:
+func build_npc(position: Vector3, gate_person := false) -> void:
 	var npc := Area3D.new()
 	npc.name = "NeighbourNPC"
 	npc.set_script(NPC_SCRIPT)
 	npc.position = position
-	npc.rotation_degrees.y = 25.0
+	npc.rotation_degrees.y = 180.0
 	var shape_node := CollisionShape3D.new()
 	var shape := CapsuleShape3D.new()
 	shape.radius = 0.5
@@ -488,7 +645,21 @@ func build_npc(position: Vector3) -> void:
 	npc.add_child(shape_node)
 	build_stylized_character(npc)
 	var npc_torso: MeshInstance3D = npc.get_node("CharacterRig/Torso")
-	npc_torso.material_override = make_material(Color("6f467f"))
+	npc_torso.material_override = make_material(Color("e8e2d7") if gate_person else Color("6f467f"))
+	if gate_person:
+		npc.name = "GateWatchmanNPC"
+		npc.get_node("CharacterRig/ShirtStripe").material_override = make_material(Color("9d3840"))
+		npc.get_node("CharacterRig/LeftLeg/Trouser").material_override = make_material(Color("4772a2"))
+		npc.get_node("CharacterRig/RightLeg/Trouser").material_override = make_material(Color("4772a2"))
+		# Three-legged survey stand visible beside the person in the reference.
+		var tripod := Node3D.new()
+		tripod.name = "SurveyTripod"
+		tripod.position = Vector3(-0.65, -0.85, -0.15)
+		add_bicycle_bar(tripod, Vector3(0, 1.55, 0), Vector3(-0.48, 0, -0.35), 0.035, Color("d9d5c9"))
+		add_bicycle_bar(tripod, Vector3(0, 1.55, 0), Vector3(0.48, 0, -0.35), 0.035, Color("d9d5c9"))
+		add_bicycle_bar(tripod, Vector3(0, 1.55, 0), Vector3(0, 0, 0.48), 0.035, Color("d9d5c9"))
+		add_character_box(tripod, "TripodHead", Vector3(0.38, 0.18, 0.28), Vector3(0, 1.62, 0), Color("454b4d"))
+		npc.add_child(tripod)
 	add_child(npc)
 
 
@@ -515,7 +686,7 @@ func build_ui() -> void:
 
 	var controls := Label.new()
 	controls.position = Vector2(34, 88)
-	controls.text = "WASD move • Space jump • E interact • F smoke • I inventory"
+	controls.text = "WASD move • Shift run/boost • Space jump • Left click punch • E interact • F smoke"
 	controls.modulate = Color("b7c2d0")
 	layer.add_child(controls)
 
@@ -526,6 +697,16 @@ func build_ui() -> void:
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint_label.add_theme_font_size_override("font_size", 18)
 	layer.add_child(hint_label)
+
+	var attribution := Label.new()
+	attribution.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	attribution.position = Vector2(-365, -28)
+	attribution.size = Vector2(350, 20)
+	attribution.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	attribution.text = "Map data © OpenStreetMap contributors • Elevation: SRTM"
+	attribution.modulate = Color(0.9, 0.9, 0.9, 0.78)
+	attribution.add_theme_font_size_override("font_size", 12)
+	layer.add_child(attribution)
 
 	player.inventory_changed.connect(update_status)
 	player.hint_changed.connect(set_hint)
