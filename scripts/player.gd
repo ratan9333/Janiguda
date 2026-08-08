@@ -30,8 +30,6 @@ var message_id := 0
 var message_active := false
 var riding_vehicle
 var player_collider: CollisionShape3D
-var punching := false
-var punch_cooldown := false
 
 
 func _ready() -> void:
@@ -106,8 +104,6 @@ func _physics_process(delta: float) -> void:
 
 	if Input.is_action_just_pressed("smoke") and cigarettes > 0 and not smoking:
 		smoke_cigarette()
-	if Input.is_action_just_pressed("punch") and not smoking and not punch_cooldown:
-		punch()
 
 
 func animate_character(delta: float, movement_speed: float) -> void:
@@ -132,12 +128,6 @@ func animate_character(delta: float, movement_speed: float) -> void:
 		left_leg.rotation.x = lerp(left_leg.rotation.x, 0.0, delta * 9.0)
 		right_leg.rotation.x = lerp(right_leg.rotation.x, 0.0, delta * 9.0)
 		character_rig.position.y = sin(animation_time * 2.0) * 0.008
-	elif punching:
-		right_arm.rotation.x = lerp(right_arm.rotation.x, -1.75, delta * 18.0)
-		right_arm.rotation.z = lerp(right_arm.rotation.z, -0.24, delta * 18.0)
-		left_arm.rotation.x = lerp(left_arm.rotation.x, 0.45, delta * 10.0)
-		left_leg.rotation.x = lerp(left_leg.rotation.x, 0.0, delta * 10.0)
-		right_leg.rotation.x = lerp(right_leg.rotation.x, 0.0, delta * 10.0)
 	elif movement_speed > 0.18:
 		var run_factor := clampf(movement_speed / RUN_SPEED, 0.25, 1.0)
 		var stride := sin(animation_time * 3.2) * lerpf(0.42, 0.78, run_factor)
@@ -155,34 +145,6 @@ func animate_character(delta: float, movement_speed: float) -> void:
 		character_rig.position.y = sin(animation_time * 2.0) * 0.008
 		character_rig.rotation.x = lerp(character_rig.rotation.x, 0.0, delta * 7.0)
 	head.rotation.z = sin(animation_time * 1.5) * 0.012
-	if not punching:
-		right_arm.rotation.z = lerp(right_arm.rotation.z, 0.0, delta * 9.0)
-
-
-func punch() -> void:
-	punching = true
-	punch_cooldown = true
-	var facing := -character_rig.global_basis.z
-	facing.y = 0.0
-	facing = facing.normalized()
-	var best_target: Node3D
-	var best_distance := 2.25
-	for node in get_tree().get_nodes_in_group("punchable"):
-		if not node is Node3D:
-			continue
-		var offset: Vector3 = node.global_position - global_position
-		offset.y = 0.0
-		var distance := offset.length()
-		if distance < best_distance and (distance < 0.25 or facing.dot(offset.normalized()) > 0.20):
-			best_target = node
-			best_distance = distance
-	await get_tree().create_timer(0.12).timeout
-	if is_instance_valid(best_target) and best_target.has_method("receive_punch"):
-		best_target.receive_punch(global_position)
-	await get_tree().create_timer(0.16).timeout
-	punching = false
-	await get_tree().create_timer(0.28).timeout
-	punch_cooldown = false
 
 
 func enter_vehicle(vehicle) -> void:
