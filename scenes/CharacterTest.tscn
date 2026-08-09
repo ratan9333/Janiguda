@@ -1,0 +1,84 @@
+[gd_scene load_steps=8 format=3 uid="uid://c8charwkshop01"]
+
+[ext_resource type="Script" path="res://scripts/character_preview.gd" id="1_prev"]
+[ext_resource type="Script" path="res://scripts/character_rig.gd" id="2_rig"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_top_color = Color(0.28, 0.42, 0.58, 1)
+sky_horizon_color = Color(0.66, 0.72, 0.75, 1)
+ground_bottom_color = Color(0.18, 0.19, 0.2, 1)
+ground_horizon_color = Color(0.66, 0.72, 0.75, 1)
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 3
+ambient_light_energy = 1.0
+tonemap_mode = 3
+tonemap_white = 6.0
+ssao_enabled = true
+ssao_radius = 1.0
+ssao_intensity = 2.2
+ssao_power = 1.5
+ssil_enabled = true
+ssil_intensity = 0.6
+glow_enabled = true
+glow_intensity = 0.3
+glow_bloom = 0.05
+glow_blend_mode = 2
+adjustment_enabled = true
+adjustment_contrast = 1.05
+adjustment_saturation = 1.08
+
+[sub_resource type="StandardMaterial3D" id="GroundMat"]
+albedo_color = Color(0.33, 0.34, 0.31, 1)
+roughness = 0.95
+
+[sub_resource type="PlaneMesh" id="Ground"]
+material = SubResource("GroundMat")
+size = Vector2(40, 40)
+
+[node name="CharacterTest" type="Node3D"]
+script = ExtResource("1_prev")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="KeyLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.514, 0.857, 0, 0.857, -0.514, 0, 8, -3)
+light_color = Color(1, 0.96, 0.9, 1)
+light_energy = 1.4
+shadow_enabled = true
+shadow_blur = 1.5
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+mesh = SubResource("Ground")
+
+[node name="CharacterRig" type="Node3D" parent="."]
+script = ExtResource("2_rig")
+
+[node name="CameraPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0)
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraPivot"]
+spring_length = 4.2
+margin = 0.2
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot/SpringArm3D"]
+current = true
+fov = 55.0
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="StateLabel" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 700.0
+offset_bottom = 80.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+text = "Pose: Idle"

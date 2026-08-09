@@ -1,0 +1,69 @@
+[gd_scene format=3 uid="uid://5t1re0dbl18c"]
+
+[ext_resource type="Script" path="res://scripts/playground_builder.gd" id="1_build"]
+[ext_resource type="Script" path="res://scripts/character_controller.gd" id="2_ctrl"]
+[ext_resource type="Script" path="res://scripts/character_rig.gd" id="3_rig"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_top_color = Color(0.3, 0.45, 0.62, 1)
+sky_horizon_color = Color(0.7, 0.75, 0.78, 1)
+ground_bottom_color = Color(0.2, 0.21, 0.22, 1)
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 3
+ambient_light_energy = 1.0
+tonemap_mode = 3
+tonemap_white = 6.0
+ssao_enabled = true
+ssao_intensity = 2.0
+ssil_enabled = true
+glow_enabled = true
+glow_intensity = 0.25
+adjustment_enabled = true
+adjustment_contrast = 1.04
+adjustment_saturation = 1.06
+
+[sub_resource type="CapsuleShape3D" id="Capsule"]
+radius = 0.42
+height = 1.8
+
+[node name="Playground" type="Node3D"]
+script = ExtResource("1_build")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.514, 0.857, 0, 0.857, -0.514, 0, 10, -4)
+light_color = Color(1, 0.96, 0.9, 1)
+light_energy = 1.3
+shadow_enabled = true
+shadow_blur = 1.5
+
+[node name="Player" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+floor_snap_length = 0.45
+script = ExtResource("2_ctrl")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("Capsule")
+
+[node name="CharacterRig" type="Node3D" parent="Player"]
+script = ExtResource("3_rig")
+
+[node name="CameraPivot" type="Node3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0)
+
+[node name="SpringArm3D" type="SpringArm3D" parent="Player/CameraPivot"]
+spring_length = 3.5
+margin = 0.3
+
+[node name="Camera3D" type="Camera3D" parent="Player/CameraPivot/SpringArm3D"]
+current = true
+fov = 62.0
