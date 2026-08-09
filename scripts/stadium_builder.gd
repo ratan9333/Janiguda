@@ -1,34 +1,34 @@
 @tool
 extends Node3D
 
-## HAL ground, Sunabeda - a rural open sports ground.
+## HAL ground, Sunabeda. A @tool script: everything renders in the EDITOR and
+## rebuilds live when you change the placement values below.
 ##
-## This is a @tool script: it runs IN THE EDITOR, so the whole ground is visible
-## in the editor viewport without pressing play, and it rebuilds live when you
-## change a placement offset below.
-##
-## To place things yourself: select this StadiumBuild node, and in the Inspector
-## change Field/Gallery/Court/Hockey Offset. The ground updates immediately.
+## The dirt ground outline and the roads are REAL (from OpenStreetMap). The
+## football complex, basketball court and hockey ground are placed by you using
+## the grouped offset + rotation values in the Inspector - drag them to line up
+## with the satellite reference.
 ##
 ## Axes: +X = east, +Z = south (-Z = north, -X = west). 1 unit = 1 metre.
+## Rotation is around Y (top-down); positive spins one way, negative the other.
 
-@export_group("Placement — drag these numbers to move pieces (live)")
-@export var field_offset: Vector3 = Vector3.ZERO:
-	set(value):
-		field_offset = value
-		_request_rebuild()
-@export var gallery_offset: Vector3 = Vector3.ZERO:
-	set(value):
-		gallery_offset = value
-		_request_rebuild()
+@export_group("Football complex (field + gallery + lights)")
+@export var complex_offset: Vector3 = Vector3.ZERO:
+	set(v): complex_offset = v; _request_rebuild()
+@export_range(-180, 180) var complex_rotation_deg: float = -35.0:
+	set(v): complex_rotation_deg = v; _request_rebuild()
+
+@export_group("Basketball court")
 @export var court_offset: Vector3 = Vector3.ZERO:
-	set(value):
-		court_offset = value
-		_request_rebuild()
+	set(v): court_offset = v; _request_rebuild()
+@export_range(-180, 180) var court_rotation_deg: float = -35.0:
+	set(v): court_rotation_deg = v; _request_rebuild()
+
+@export_group("Hockey ground")
 @export var hockey_offset: Vector3 = Vector3.ZERO:
-	set(value):
-		hockey_offset = value
-		_request_rebuild()
+	set(v): hockey_offset = v; _request_rebuild()
+@export_range(-180, 180) var hockey_rotation_deg: float = -35.0:
+	set(v): hockey_rotation_deg = v; _request_rebuild()
 
 const FIELD_MAT := preload("res://materials/field_dirt.tres")
 const LINE_MAT := preload("res://materials/pitch_lines.tres")
@@ -44,13 +44,10 @@ const FIELD_HALF_Z := 54.0
 const LINE_W := 0.12
 const LINE_Y := 0.06
 
-# Base positions (offsets add to these). Hockey sits just north of the field.
-const COURT_BASE := Vector3(-58.0, 0, 44.0)
-const HOCKEY_BASE := Vector3(18.0, 0, -86.0)
+# Default base positions (offsets add to these). Court to the SW, hockey to NE.
+const COURT_BASE := Vector3(-62.0, 0, 58.0)
+const HOCKEY_BASE := Vector3(78.0, 0, -60.0)
 
-# Real-world centre = the HAL Stadium footprint centroid (from OSM). Roads and
-# the real ground outline are placed relative to this, so the scene origin sits
-# at the middle of the actual ground.
 const OSM_CENTER_LAT := 18.7244769
 const OSM_CENTER_LON := 82.82651795
 const STADIUM_WAY_ID := 231036048
@@ -74,28 +71,21 @@ func _rebuild() -> void:
 	_root = Node3D.new()
 	_root.name = "Generated"
 	add_child(_root)
-	# _root has no owner, so none of the generated geometry is saved into the
-	# .tscn - it is rebuilt fresh from this script every time.
 	build_ground_base()
-	build_real_roads()        # actual OSM road network (~1 km)
-	build_real_compound()     # actual HAL ground outline, filled as dirt
-	build_hockey_ground()
-	build_football_field()    # markings + goals on the real ground (placeable)
-	build_open_gallery()
+	build_real_roads()
+	build_real_compound()
+	build_boundary_trees()
+	build_football_complex()
 	build_basketball_court()
-	build_trees()
-	build_floodlights()
+	build_hockey_ground()
 
 
-# --- fixed shell ---
+# --- real, fixed ---
 
 func build_ground_base() -> void:
-	# Large enough to sit under the ~1 km road network.
 	_slab("GroundBase", Vector3(2600, 0.4, 2600), Vector3(0, -0.35, 0), GROUND_MAT)
 
 
-## Real road network from OpenStreetMap (© OpenStreetMap contributors, ODbL),
-## everything within the ~1.2 km query radius, positioned relative to the ground.
 func build_real_roads() -> void:
 	var data = _load_osm()
 	if data == null:
@@ -114,29 +104,15 @@ func build_real_roads() -> void:
 			continue
 		var kind: String = tags.get("highway", "")
 		var width := 7.0
-		if kind == "residential" or kind == "unclassified" or kind == "tertiary":
+		if kind in ["residential", "unclassified", "tertiary"]:
 			width = 5.0
-		elif kind == "service" or kind == "track" or kind == "path" or kind == "footway":
+		elif kind in ["service", "track", "path", "footway"]:
 			width = 3.0
 		_road_strip(roads, points, width)
 
 
-## The real HAL ground outline (OSM way), filled with dirt - the exact shape and
-## size of the bare-earth ground from the map.
 func build_real_compound() -> void:
-	var data = _load_osm()
-	if data == null:
-		return
-	var stadium
-	for element in data.elements:
-		if element.type == "way" and int(element.id) == STADIUM_WAY_ID:
-			stadium = element
-			break
-	if stadium == null or not stadium.has("geometry"):
-		return
-	var pts := PackedVector3Array()
-	for coordinate in stadium.geometry:
-		pts.append(_ll_to_world(float(coordinate.lat), float(coordinate.lon)))
+	var pts := _compound_points()
 	if pts.size() < 3:
 		return
 	var ground := _group("RealGround")
@@ -145,10 +121,9 @@ func build_real_compound() -> void:
 	var origin := pts[0]
 	origin.y = 0.04
 	for i in range(1, pts.size() - 1):
-		var a := origin
 		var b := pts[i]; b.y = 0.04
 		var c := pts[i + 1]; c.y = 0.04
-		for tri in [[a, b, c], [a, c, b]]:  # double-sided
+		for tri in [[origin, b, c], [origin, c, b]]:
 			for p in tri:
 				surface.set_uv(Vector2(p.x * 0.05, p.z * 0.05))
 				surface.add_vertex(p)
@@ -161,71 +136,75 @@ func build_real_compound() -> void:
 	ground.add_child(instance)
 
 
-func build_trees() -> void:
-	var trees := _group("Trees")
+## Trees lining the real ground boundary (as in the satellite - a ring of
+## eucalyptus hugging the outline), plus a little scatter.
+func build_boundary_trees() -> void:
+	var pts := _compound_points()
+	if pts.size() < 3:
+		return
+	var trees := _group("BoundaryTrees")
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 4747
-	var count := 44
-	for i in range(count):
-		var angle := TAU * float(i) / count
-		var rx := 66.0 + rng.randf_range(-4.0, 4.0)
-		var rz := 116.0 + rng.randf_range(-6.0, 6.0)
-		var pos := Vector3(cos(angle) * rx, 0, sin(angle) * rz - 18.0)
-		_eucalyptus(trees, pos, rng.randf_range(11.0, 17.0))
+	rng.seed = 99
+	for i in range(pts.size() - 1):
+		var a := pts[i]
+		var b := pts[i + 1]
+		var seg := a.distance_to(b)
+		var n := maxi(1, int(seg / 9.0))
+		for j in range(n):
+			var p := a.lerp(b, float(j) / n)
+			var outward := Vector3(p.x, 0, p.z).normalized() * 5.0
+			p += outward + Vector3(rng.randf_range(-2, 2), 0, rng.randf_range(-2, 2))
+			_eucalyptus(trees, Vector3(p.x, 0, p.z), rng.randf_range(10.0, 16.0))
 
 
-func build_floodlights() -> void:
-	var poles := _group("Floodlights")
-	var px := FIELD_HALF_X + 20.0
-	var pz := FIELD_HALF_Z + 6.0
-	for sx in [-1.0, 1.0]:
-		for sz in [-1.0, 1.0]:
-			var base := Vector3(float(sx) * px, 0, float(sz) * pz) + field_offset
-			_slab("Pole", Vector3(0.35, 15.0, 0.35), base + Vector3(0, 7.5, 0), POLE_MAT, poles)
-			_slab("Lights", Vector3(2.2, 0.9, 0.5), base + Vector3(0, 15.0, 0), POLE_MAT, poles)
+# --- placeable (offset + rotation) ---
 
+func build_football_complex() -> void:
+	var complex := _group("FootballComplex")
+	complex.position = complex_offset
+	complex.rotation.y = deg_to_rad(complex_rotation_deg)
 
-# --- placeable elements ---
-
-func build_football_field() -> void:
-	# Markings + goals only; the dirt ground comes from the real OSM outline.
-	var field := _group("FootballField")
-	field.position = field_offset
+	# Field markings.
 	var hx := FIELD_HALF_X
 	var hz := FIELD_HALF_Z
-	_line(field, Vector3(-hx, 0, -hz), Vector3(hx, 0, -hz))
-	_line(field, Vector3(-hx, 0, hz), Vector3(hx, 0, hz))
-	_line(field, Vector3(-hx, 0, -hz), Vector3(-hx, 0, hz))
-	_line(field, Vector3(hx, 0, -hz), Vector3(hx, 0, hz))
-	_line(field, Vector3(-hx, 0, 0), Vector3(hx, 0, 0))
-	_circle(field, 9.15, 48)
+	_line(complex, Vector3(-hx, 0, -hz), Vector3(hx, 0, -hz))
+	_line(complex, Vector3(-hx, 0, hz), Vector3(hx, 0, hz))
+	_line(complex, Vector3(-hx, 0, -hz), Vector3(-hx, 0, hz))
+	_line(complex, Vector3(hx, 0, -hz), Vector3(hx, 0, hz))
+	_line(complex, Vector3(-hx, 0, 0), Vector3(hx, 0, 0))
+	_circle(complex, 9.15, 48)
 	for side in [-1.0, 1.0]:
 		var sign := float(side)
 		var z := sign * hz
-		_slab("GoalPostL", Vector3(0.12, 2.44, 0.12), Vector3(-3.66, 1.22, z), LINE_MAT, field)
-		_slab("GoalPostR", Vector3(0.12, 2.44, 0.12), Vector3(3.66, 1.22, z), LINE_MAT, field)
-		_slab("GoalBar", Vector3(7.32, 0.12, 0.12), Vector3(0, 2.44, z), LINE_MAT, field)
+		_slab("GoalPostL", Vector3(0.12, 2.44, 0.12), Vector3(-3.66, 1.22, z), LINE_MAT, complex)
+		_slab("GoalPostR", Vector3(0.12, 2.44, 0.12), Vector3(3.66, 1.22, z), LINE_MAT, complex)
+		_slab("GoalBar", Vector3(7.32, 0.12, 0.12), Vector3(0, 2.44, z), LINE_MAT, complex)
 
-
-func build_open_gallery() -> void:
-	var gallery := _group("OpenGallery")
-	gallery.position = field_offset + gallery_offset
+	# Open L-gallery on the west + south sides.
 	var rows := 10
 	var depth := 0.8
 	var rise := 0.36
-	var west_front := -(FIELD_HALF_X + 12.0)
+	var west_front := -(hx + 10.0)
 	for i in range(rows):
-		_slab("WestRow%d" % i, Vector3(depth, rise, FIELD_HALF_Z * 2.0),
-			Vector3(west_front - i * depth, i * rise + rise * 0.5, 0), CONCRETE_MAT, gallery)
-	var south_front := FIELD_HALF_Z + 12.0
+		_slab("WestRow%d" % i, Vector3(depth, rise, hz * 2.0),
+			Vector3(west_front - i * depth, i * rise + rise * 0.5, 0), CONCRETE_MAT, complex)
+	var south_front := hz + 10.0
 	for i in range(rows):
-		_slab("SouthRow%d" % i, Vector3(FIELD_HALF_X * 2.0, rise, depth),
-			Vector3(0, i * rise + rise * 0.5, south_front + i * depth), CONCRETE_MAT, gallery)
+		_slab("SouthRow%d" % i, Vector3(hx * 2.0, rise, depth),
+			Vector3(0, i * rise + rise * 0.5, south_front + i * depth), CONCRETE_MAT, complex)
+
+	# Floodlight poles at the field corners.
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			var base := Vector3(float(sx) * (hx + 8.0), 0, float(sz) * (hz + 4.0))
+			_slab("Pole", Vector3(0.35, 15.0, 0.35), base + Vector3(0, 7.5, 0), POLE_MAT, complex)
+			_slab("Lights", Vector3(2.2, 0.9, 0.5), base + Vector3(0, 15.0, 0), POLE_MAT, complex)
 
 
 func build_basketball_court() -> void:
 	var court := _group("BasketballCourt")
 	court.position = COURT_BASE + court_offset
+	court.rotation.y = deg_to_rad(court_rotation_deg)
 	_slab("CourtSurface", Vector3(15.0, 0.15, 30.0), Vector3(0, 0.02, 0), COURT_MAT, court)
 	_court_line(court, Vector3(-7.5, 0, -15), Vector3(7.5, 0, -15))
 	_court_line(court, Vector3(-7.5, 0, 15), Vector3(7.5, 0, 15))
@@ -242,6 +221,7 @@ func build_basketball_court() -> void:
 func build_hockey_ground() -> void:
 	var hockey := _group("OldHockeyGround")
 	hockey.position = HOCKEY_BASE + hockey_offset
+	hockey.rotation.y = deg_to_rad(hockey_rotation_deg)
 	var hx := 45.5
 	var hz := 27.5
 	_slab("HockeyField", Vector3(hx * 2, 0.16, hz * 2), Vector3(0, -0.08, 0), GRASS_MAT, hockey)
@@ -253,17 +233,22 @@ func build_hockey_ground() -> void:
 
 # --- helpers ---
 
-func _group(node_name: String) -> Node3D:
-	var node := Node3D.new()
-	node.name = node_name
-	_root.add_child(node)
-	return node
+func _compound_points() -> PackedVector3Array:
+	var data = _load_osm()
+	var out := PackedVector3Array()
+	if data == null:
+		return out
+	for element in data.elements:
+		if element.type == "way" and int(element.id) == STADIUM_WAY_ID and element.has("geometry"):
+			for coordinate in element.geometry:
+				out.append(_ll_to_world(float(coordinate.lat), float(coordinate.lon)))
+			break
+	return out
 
 
 func _load_osm():
 	var file := FileAccess.open("res://data/hal_stadium_osm.json", FileAccess.READ)
 	if file == null:
-		push_warning("stadium_builder: OSM data not found")
 		return null
 	return JSON.parse_string(file.get_as_text())
 
@@ -298,12 +283,18 @@ func _road_strip(parent: Node, points: PackedVector3Array, width: float) -> void
 	parent.add_child(instance)
 
 
+func _group(node_name: String) -> Node3D:
+	var node := Node3D.new()
+	node.name = node_name
+	_root.add_child(node)
+	return node
+
+
 func _eucalyptus(parent: Node, pos: Vector3, height: float) -> void:
 	var trunk_mat := StandardMaterial3D.new()
 	trunk_mat.albedo_color = Color("7a6a55")
 	var foliage_mat := StandardMaterial3D.new()
 	foliage_mat.albedo_color = Color("39502a")
-
 	var trunk := MeshInstance3D.new()
 	var trunk_mesh := CylinderMesh.new()
 	trunk_mesh.top_radius = 0.2
