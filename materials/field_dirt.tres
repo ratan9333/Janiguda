@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+; The bare-earth playing field (this ground is dirt, not grass). To texture:
+; drop a dry-ground / dirt / packed-earth texture into albedo_texture and set
+; uv1_scale around Vector3 30, 30, 30. Poly Haven "aerial_ground", "dirt",
+; or "brown_mud" work well.
+[resource]
+albedo_color = Color(0.44, 0.35, 0.25, 1)
+roughness = 1.0

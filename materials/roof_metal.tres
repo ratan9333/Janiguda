@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+; The grandstand roof - corrugated metal sheeting, weathered green-grey like
+; the real one. To texture: a corrugated/ribbed metal texture, uv1_scale around
+; Vector3 8, 8, 8, and raise metallic toward 0.4 for sheen.
+[resource]
+albedo_color = Color(0.4, 0.46, 0.42, 1)
+metallic = 0.3
+roughness = 0.7
