@@ -10,8 +10,8 @@ config_version=5
 
 [application]
 
-config/name="Small World Prototype"
-run/main_scene="res://main.tscn"
+config/name="Semiliguda"
+run/main_scene="res://scenes/HalMain.tscn"
 config/features=PackedStringArray("4.7")
 
 [display]
