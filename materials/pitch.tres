@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+; The football pitch surface. To texture: drop a grass texture into
+; albedo_texture, and set uv1_scale so the blades look real-sized
+; (try Vector3 around 40, 40, 40 for a 105 x 68 m pitch).
+[resource]
+albedo_color = Color(0.22, 0.45, 0.2, 1)
+roughness = 0.95

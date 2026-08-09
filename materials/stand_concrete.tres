@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+; The gallery stand (terracing + walls). THIS is your first texturing task:
+; download a concrete PBR texture from Poly Haven, drop the colour map into
+; albedo_texture, the normal map into normal_texture (tick normal_enabled),
+; and set uv1_scale so the concrete grain looks real (try Vector3 4, 4, 4).
+[resource]
+albedo_color = Color(0.62, 0.61, 0.58, 1)
+roughness = 0.9
