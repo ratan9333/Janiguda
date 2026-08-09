@@ -48,6 +48,13 @@ const LINE_Y := 0.06
 const COURT_BASE := Vector3(-58.0, 0, 44.0)
 const HOCKEY_BASE := Vector3(18.0, 0, -86.0)
 
+# Real-world centre = the HAL Stadium footprint centroid (from OSM). Roads and
+# the real ground outline are placed relative to this, so the scene origin sits
+# at the middle of the actual ground.
+const OSM_CENTER_LAT := 18.7244769
+const OSM_CENTER_LON := 82.82651795
+const STADIUM_WAY_ID := 231036048
+
 var _root: Node3D
 
 
@@ -70,11 +77,10 @@ func _rebuild() -> void:
 	# _root has no owner, so none of the generated geometry is saved into the
 	# .tscn - it is rebuilt fresh from this script every time.
 	build_ground_base()
-	build_roads()
-	build_perimeter()
-	build_running_track()
+	build_real_roads()        # actual OSM road network (~1 km)
+	build_real_compound()     # actual HAL ground outline, filled as dirt
 	build_hockey_ground()
-	build_football_field()
+	build_football_field()    # markings + goals on the real ground (placeable)
 	build_open_gallery()
 	build_basketball_court()
 	build_trees()
@@ -84,41 +90,75 @@ func _rebuild() -> void:
 # --- fixed shell ---
 
 func build_ground_base() -> void:
-	_slab("GroundBase", Vector3(420, 0.4, 420), Vector3(0, -0.35, 0), GROUND_MAT)
+	# Large enough to sit under the ~1 km road network.
+	_slab("GroundBase", Vector3(2600, 0.4, 2600), Vector3(0, -0.35, 0), GROUND_MAT)
 
 
-func build_roads() -> void:
-	_slab("RoadWest", Vector3(8, 0.1, 260), Vector3(-84, 0.02, -30), ROAD_MAT)
-	_slab("RoadSouth", Vector3(180, 0.1, 8), Vector3(-10, 0.02, 104), ROAD_MAT)
-	_slab("RoadEast", Vector3(8, 0.1, 200), Vector3(80, 0.02, -20), ROAD_MAT)
+## Real road network from OpenStreetMap (© OpenStreetMap contributors, ODbL),
+## everything within the ~1.2 km query radius, positioned relative to the ground.
+func build_real_roads() -> void:
+	var data = _load_osm()
+	if data == null:
+		return
+	var roads := _group("RealRoads")
+	for element in data.elements:
+		if element.type != "way" or not element.has("geometry"):
+			continue
+		var tags: Dictionary = element.get("tags", {})
+		if not tags.has("highway"):
+			continue
+		var points := PackedVector3Array()
+		for coordinate in element.geometry:
+			points.append(_ll_to_world(float(coordinate.lat), float(coordinate.lon)))
+		if points.size() < 2:
+			continue
+		var kind: String = tags.get("highway", "")
+		var width := 7.0
+		if kind == "residential" or kind == "unclassified" or kind == "tertiary":
+			width = 5.0
+		elif kind == "service" or kind == "track" or kind == "path" or kind == "footway":
+			width = 3.0
+		_road_strip(roads, points, width)
 
 
-func build_perimeter() -> void:
-	var wall := _group("PerimeterBoundary")
-	var x0 := -74.0
-	var x1 := 74.0
-	var z0 := -128.0
-	var z1 := 94.0
-	var h := 1.6
-	_slab("WallN", Vector3(x1 - x0, h, 0.3), Vector3((x0 + x1) * 0.5, h * 0.5, z0), CONCRETE_MAT, wall)
-	_slab("WallS", Vector3(x1 - x0, h, 0.3), Vector3((x0 + x1) * 0.5, h * 0.5, z1), CONCRETE_MAT, wall)
-	_slab("WallW", Vector3(0.3, h, z1 - z0), Vector3(x0, h * 0.5, (z0 + z1) * 0.5), CONCRETE_MAT, wall)
-	_slab("WallE", Vector3(0.3, h, z1 - z0), Vector3(x1, h * 0.5, (z0 + z1) * 0.5), CONCRETE_MAT, wall)
-
-
-## Rectangular dirt running-track loop around the football field (4 straights).
-func build_running_track() -> void:
-	var track := _group("RunningTrack")
-	var ix := FIELD_HALF_X + 9.0
-	var iz := FIELD_HALF_Z + 9.0
-	var w := 6.0
-	var c := field_offset
-	# North & south straights.
-	_slab("TrackN", Vector3((ix + w) * 2, 0.1, w), c + Vector3(0, 0.05, -(iz + w * 0.5)), FIELD_MAT, track)
-	_slab("TrackS", Vector3((ix + w) * 2, 0.1, w), c + Vector3(0, 0.05, iz + w * 0.5), FIELD_MAT, track)
-	# East & west straights.
-	_slab("TrackW", Vector3(w, 0.1, iz * 2), c + Vector3(-(ix + w * 0.5), 0.05, 0), FIELD_MAT, track)
-	_slab("TrackE", Vector3(w, 0.1, iz * 2), c + Vector3(ix + w * 0.5, 0.05, 0), FIELD_MAT, track)
+## The real HAL ground outline (OSM way), filled with dirt - the exact shape and
+## size of the bare-earth ground from the map.
+func build_real_compound() -> void:
+	var data = _load_osm()
+	if data == null:
+		return
+	var stadium
+	for element in data.elements:
+		if element.type == "way" and int(element.id) == STADIUM_WAY_ID:
+			stadium = element
+			break
+	if stadium == null or not stadium.has("geometry"):
+		return
+	var pts := PackedVector3Array()
+	for coordinate in stadium.geometry:
+		pts.append(_ll_to_world(float(coordinate.lat), float(coordinate.lon)))
+	if pts.size() < 3:
+		return
+	var ground := _group("RealGround")
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var origin := pts[0]
+	origin.y = 0.04
+	for i in range(1, pts.size() - 1):
+		var a := origin
+		var b := pts[i]; b.y = 0.04
+		var c := pts[i + 1]; c.y = 0.04
+		for tri in [[a, b, c], [a, c, b]]:  # double-sided
+			for p in tri:
+				surface.set_uv(Vector2(p.x * 0.05, p.z * 0.05))
+				surface.add_vertex(p)
+	surface.generate_normals()
+	var mesh := surface.commit()
+	mesh.surface_set_material(0, FIELD_MAT)
+	var instance := MeshInstance3D.new()
+	instance.name = "GroundFill"
+	instance.mesh = mesh
+	ground.add_child(instance)
 
 
 func build_trees() -> void:
@@ -148,9 +188,9 @@ func build_floodlights() -> void:
 # --- placeable elements ---
 
 func build_football_field() -> void:
+	# Markings + goals only; the dirt ground comes from the real OSM outline.
 	var field := _group("FootballField")
 	field.position = field_offset
-	_slab("FieldPad", Vector3(FIELD_HALF_X * 2 + 4, 0.2, FIELD_HALF_Z * 2 + 4), Vector3(0, -0.1, 0), FIELD_MAT, field)
 	var hx := FIELD_HALF_X
 	var hz := FIELD_HALF_Z
 	_line(field, Vector3(-hx, 0, -hz), Vector3(hx, 0, -hz))
@@ -218,6 +258,44 @@ func _group(node_name: String) -> Node3D:
 	node.name = node_name
 	_root.add_child(node)
 	return node
+
+
+func _load_osm():
+	var file := FileAccess.open("res://data/hal_stadium_osm.json", FileAccess.READ)
+	if file == null:
+		push_warning("stadium_builder: OSM data not found")
+		return null
+	return JSON.parse_string(file.get_as_text())
+
+
+func _ll_to_world(latitude: float, longitude: float) -> Vector3:
+	var meters_per_lon := 111320.0 * cos(deg_to_rad(OSM_CENTER_LAT))
+	return Vector3((longitude - OSM_CENTER_LON) * meters_per_lon, 0.03, -(latitude - OSM_CENTER_LAT) * 110540.0)
+
+
+func _road_strip(parent: Node, points: PackedVector3Array, width: float) -> void:
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for index in range(points.size() - 1):
+		var start := points[index]
+		var finish := points[index + 1]
+		var direction := Vector3(finish.x - start.x, 0, finish.z - start.z)
+		if direction.length_squared() < 0.0001:
+			continue
+		var side := Vector3(-direction.z, 0, direction.x).normalized() * width * 0.5
+		for tri in [[start - side, finish - side, finish + side], [start - side, finish + side, start + side]]:
+			for p in tri:
+				surface.set_uv(Vector2(p.x * 0.05, p.z * 0.05))
+				surface.add_vertex(p)
+	surface.generate_normals()
+	var mesh := surface.commit()
+	if mesh == null:
+		return
+	mesh.surface_set_material(0, ROAD_MAT)
+	var instance := MeshInstance3D.new()
+	instance.name = "Road"
+	instance.mesh = mesh
+	parent.add_child(instance)
 
 
 func _eucalyptus(parent: Node, pos: Vector3, height: float) -> void:
