@@ -26,22 +26,26 @@ adjustment_contrast = 1.04
 adjustment_saturation = 1.05
 
 [node name="StadiumBuild" type="Node3D" unique_id=282938332]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0)
 script = ExtResource("1_build")
+gallery_curve_radius = 200.0
+gallery_curve_arc_deg = 10.186
 
-[node name="FieldAnchor" type="Marker3D" parent="."]
-transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, 0, 0, 0)
+[node name="FieldAnchor" type="Marker3D" parent="." unique_id=1221475181]
+transform = Transform3D(0.7860214, -1.7076349e-09, 0.6182848, 1.2765136e-09, 1, 1.1393593e-09, -0.6182848, -1.06300635e-10, 0.7860214, -14.063106, 0, 15.506438)
 
-[node name="GalleryStraightAnchor" type="Marker3D" parent="."]
-transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, -46, 0, 0)
+[node name="GalleryStraightAnchor" type="Marker3D" parent="." unique_id=1650884699]
+transform = Transform3D(-0.60660875, 0, -0.8328044, 0, 1.5, 0, 0.50608885, 0, -0.9982168, -58.657555, 0, -34.11808)
 
-[node name="GalleryCurvedAnchor" type="Marker3D" parent="."]
-transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, 6, 0, 52)
+[node name="GalleryCurvedAnchor" type="Marker3D" parent="." unique_id=2079728438]
+transform = Transform3D(0.5885582, 0, -1.4335793, 0, 1.5, 0, 1.9114391, 0, 0.44141865, -87.21743, 0, 38.99592)
+gizmo_extents = 0.1
 
-[node name="CourtAnchor" type="Marker3D" parent="."]
-transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, -62, 0, 58)
+[node name="CourtAnchor" type="Marker3D" parent="." unique_id=1498507797]
+transform = Transform3D(0.89575195, 0, 0.44467318, 0, 1, 0, -0.44467318, 0, 0.89575195, -72.01528, 0, 40.15214)
 
-[node name="HockeyAnchor" type="Marker3D" parent="."]
-transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, 78, 0, -60)
+[node name="HockeyAnchor" type="Marker3D" parent="." unique_id=1554041994]
+transform = Transform3D(0.6270458, 0, -0.7790503, 0, 1, 0, 0.7790503, 0, 0.6270458, 37.42758, 0, -35.42913)
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=313712687]
 environment = SubResource("Env")

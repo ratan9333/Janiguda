@@ -22,6 +22,18 @@ extends Node3D
 @export_range(5, 120) var gallery_curve_arc_deg: float = 40.0:
 	set(v): gallery_curve_arc_deg = v; _request_rebuild()
 
+## Sizes in metres. Drag these instead of scaling the nodes - this keeps the
+## real-world scale correct (1 unit = 1 metre).
+@export_group("Sizes (metres)")
+@export_range(30, 130) var field_width_m: float = 75.0:
+	set(v): field_width_m = v; _request_rebuild()
+@export_range(40, 130) var field_length_m: float = 108.0:
+	set(v): field_length_m = v; _request_rebuild()
+@export_range(10, 160) var gallery_length_m: float = 90.0:
+	set(v): gallery_length_m = v; _request_rebuild()
+@export_range(1, 40) var gallery_rows: int = 15:
+	set(v): gallery_rows = v; _request_rebuild()
+
 const FIELD_MAT := preload("res://materials/field_dirt.tres")
 const LINE_MAT := preload("res://materials/pitch_lines.tres")
 const CONCRETE_MAT := preload("res://materials/stand_concrete.tres")
@@ -31,8 +43,6 @@ const GROUND_MAT := preload("res://materials/ground_base.tres")
 const GRASS_MAT := preload("res://materials/grass_green.tres")
 const ROAD_MAT := preload("res://materials/road_surface.tres")
 
-const FIELD_HALF_X := 37.5
-const FIELD_HALF_Z := 54.0
 const LINE_W := 0.12
 const LINE_Y := 0.06
 
@@ -162,8 +172,8 @@ func build_boundary_trees() -> void:
 # --- placeable pieces (built under their anchor, local coords) ---
 
 func _build_field(anchor: Node) -> void:
-	var hx := FIELD_HALF_X
-	var hz := FIELD_HALF_Z
+	var hx := field_width_m * 0.5
+	var hz := field_length_m * 0.5
 	_line(anchor, Vector3(-hx, 0, -hz), Vector3(hx, 0, -hz))
 	_line(anchor, Vector3(-hx, 0, hz), Vector3(hx, 0, hz))
 	_line(anchor, Vector3(-hx, 0, -hz), Vector3(-hx, 0, hz))
@@ -187,10 +197,10 @@ func _build_field(anchor: Node) -> void:
 ## A STRAIGHT stand: terrace rows are boxes in a line. Each higher row steps
 ## back (+Z) and up (+Y). This is the simplest kind of stand.
 func _build_gallery_straight(anchor: Node) -> void:
-	var rows := 10
-	var depth := 0.8      # how deep each step is
-	var rise := 0.36      # how tall each step is
-	var length := 90.0    # how long the stand runs (along X)
+	var rows := gallery_rows
+	var depth := 0.8            # how deep each step is (m)
+	var rise := 0.36           # how tall each step is (m)
+	var length := gallery_length_m   # how long the stand runs, in metres
 	for i in range(rows):
 		_slab("Row%d" % i, Vector3(length, rise, depth),
 			Vector3(0, i * rise + rise * 0.5, i * depth), CONCRETE_MAT, anchor)
@@ -200,7 +210,7 @@ func _build_gallery_straight(anchor: Node) -> void:
 ## of short boxes placed along an ARC. We step an ANGLE across the arc and rotate
 ## each box to follow the curve. Bigger radius = gentler curve.
 func _build_gallery_curved(anchor: Node) -> void:
-	var rows := 8
+	var rows := gallery_rows
 	var depth := 0.8
 	var rise := 0.36
 	var radius := gallery_curve_radius
