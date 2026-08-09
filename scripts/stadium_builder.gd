@@ -16,20 +16,23 @@ const LINE_MAT := preload("res://materials/pitch_lines.tres")
 const CONCRETE_MAT := preload("res://materials/stand_concrete.tres")
 const ROOF_MAT := preload("res://materials/roof_metal.tres")
 const POLE_MAT := preload("res://materials/pole_metal.tres")
+const COURT_MAT := preload("res://materials/court_surface.tres")
 
-# Real ground is smaller than a regulation pitch. Long axis runs along Z.
-const FIELD_HALF_X := 31.0   # half-width  (62 m)
-const FIELD_HALF_Z := 48.0   # half-length (96 m)
+# Measured dimensions (metres, from the team). Long axis runs along Z.
+const FIELD_HALF_X := 37.5   # playing field 75 m wide
+const FIELD_HALF_Z := 54.0   # playing field 108 m long
+const BOUND_HALF_X := 41.5   # ground boundary 83 m wide
+const BOUND_HALF_Z := 61.0   # ground boundary 122 m long
 const LINE_W := 0.12
 const LINE_Y := 0.06
 
-# West grandstand (covered).
+# Grandstands, positioned just outside the boundary.
 const WEST_ROWS := 18
 const EAST_ROWS := 7
 const ROW_DEPTH := 0.75
 const ROW_RISE := 0.40
-const STAND_LEN := 86.0       # along Z
-const RUNOFF := 6.0           # gap between field edge and first row
+const STAND_LEN := 100.0      # along Z
+const STAND_GAP := 3.0        # boundary to first row
 
 
 func _ready() -> void:
@@ -40,10 +43,12 @@ func _ready() -> void:
 	build_east_terrace()
 	build_floodlights()
 	build_boundary_wall()
+	build_basketball_court()
 
 
 func build_field() -> void:
-	_slab("Field", Vector3(FIELD_HALF_X * 2 + 6, 0.2, FIELD_HALF_Z * 2 + 6), Vector3(0, -0.1, 0), FIELD_MAT)
+	# The dirt runs out to the boundary; markings define the smaller playing area.
+	_slab("Field", Vector3(BOUND_HALF_X * 2, 0.2, BOUND_HALF_Z * 2), Vector3(0, -0.1, 0), FIELD_MAT)
 
 
 func build_markings() -> void:
@@ -54,14 +59,14 @@ func build_markings() -> void:
 	_line(Vector3(-hx, 0, hz), Vector3(hx, 0, hz))
 	_line(Vector3(-hx, 0, -hz), Vector3(-hx, 0, hz))
 	_line(Vector3(hx, 0, -hz), Vector3(hx, 0, hz))
-	# Halfway line (across the short axis) + centre circle.
+	# Halfway line (across the short axis) + centre circle (9.15 m radius).
 	_line(Vector3(-hx, 0, 0), Vector3(hx, 0, 0))
-	_circle(Vector3.ZERO, 8.0, 40)
-	# Penalty areas at each end (scaled to the smaller pitch).
+	_circle(Vector3.ZERO, 9.15, 48)
+	# Penalty areas at each end (16.5 m deep, 40.3 m wide).
 	for side in [-1.0, 1.0]:
 		var sign := float(side)
-		var z_line := sign * (hz - 14.0)
-		var pw := 18.0
+		var z_line := sign * (hz - 16.5)
+		var pw := 20.15
 		_line(Vector3(-pw, 0, z_line), Vector3(pw, 0, z_line))
 		_line(Vector3(-pw, 0, sign * hz), Vector3(-pw, 0, z_line))
 		_line(Vector3(pw, 0, sign * hz), Vector3(pw, 0, z_line))
@@ -84,7 +89,7 @@ func build_west_grandstand() -> void:
 	var stand := Node3D.new()
 	stand.name = "WestGrandstand"
 	add_child(stand)
-	var front_x := -(FIELD_HALF_X + RUNOFF)
+	var front_x := -(BOUND_HALF_X + STAND_GAP)
 	for i in range(WEST_ROWS):
 		var x := front_x - i * ROW_DEPTH
 		var y := i * ROW_RISE
@@ -117,7 +122,7 @@ func build_east_terrace() -> void:
 	var stand := Node3D.new()
 	stand.name = "EastTerrace"
 	add_child(stand)
-	var front_x := FIELD_HALF_X + RUNOFF
+	var front_x := BOUND_HALF_X + STAND_GAP
 	for i in range(EAST_ROWS):
 		var x := front_x + i * ROW_DEPTH
 		var y := i * ROW_RISE
@@ -129,8 +134,8 @@ func build_floodlights() -> void:
 	var poles := Node3D.new()
 	poles.name = "Floodlights"
 	add_child(poles)
-	var px := FIELD_HALF_X + 12.0
-	var pz := FIELD_HALF_Z - 4.0
+	var px := BOUND_HALF_X + 8.0
+	var pz := BOUND_HALF_Z - 6.0
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
 			var base := Vector3(float(sx) * px, 0, float(sz) * pz)
@@ -142,16 +147,53 @@ func build_floodlights() -> void:
 
 
 func build_boundary_wall() -> void:
+	# Low wall on the measured ground boundary (122 x 83 m).
 	var wall := Node3D.new()
 	wall.name = "BoundaryWall"
 	add_child(wall)
-	var wx := FIELD_HALF_X + 22.0
-	var wz := FIELD_HALF_Z + 14.0
-	var h := 2.2
-	_slab("WallN", Vector3(wx * 2, h, 0.4), Vector3(0, h * 0.5, -wz), CONCRETE_MAT, wall)
-	_slab("WallS", Vector3(wx * 2, h, 0.4), Vector3(0, h * 0.5, wz), CONCRETE_MAT, wall)
-	_slab("WallE", Vector3(0.4, h, wz * 2), Vector3(wx, h * 0.5, 0), CONCRETE_MAT, wall)
-	_slab("WallW", Vector3(0.4, h, wz * 2), Vector3(-wx, h * 0.5, 0), CONCRETE_MAT, wall)
+	var wx := BOUND_HALF_X
+	var wz := BOUND_HALF_Z
+	var h := 1.1
+	_slab("WallN", Vector3(wx * 2, h, 0.3), Vector3(0, h * 0.5, -wz), CONCRETE_MAT, wall)
+	_slab("WallS", Vector3(wx * 2, h, 0.3), Vector3(0, h * 0.5, wz), CONCRETE_MAT, wall)
+	_slab("WallE", Vector3(0.3, h, wz * 2), Vector3(wx, h * 0.5, 0), CONCRETE_MAT, wall)
+	_slab("WallW", Vector3(0.3, h, wz * 2), Vector3(-wx, h * 0.5, 0), CONCRETE_MAT, wall)
+
+
+## Basketball court (15 x 30 m) next to the ground, beyond the north end.
+func build_basketball_court() -> void:
+	var court := Node3D.new()
+	court.name = "BasketballCourt"
+	var origin := Vector3(0, 0, -(BOUND_HALF_Z + 22.0))
+	court.position = origin
+	add_child(court)
+	# Court surface, 15 wide (x) x 30 long (z).
+	_slab("CourtSurface", Vector3(15.0, 0.15, 30.0), Vector3(0, 0.02, 0), COURT_MAT, court)
+	# Boundary + halfway lines.
+	_court_line(court, Vector3(-7.5, 0, -15), Vector3(7.5, 0, -15))
+	_court_line(court, Vector3(-7.5, 0, 15), Vector3(7.5, 0, 15))
+	_court_line(court, Vector3(-7.5, 0, -15), Vector3(-7.5, 0, 15))
+	_court_line(court, Vector3(7.5, 0, -15), Vector3(7.5, 0, 15))
+	_court_line(court, Vector3(-7.5, 0, 0), Vector3(7.5, 0, 0))
+	# Two hoops: pole + backboard at each end.
+	for side in [-1.0, 1.0]:
+		var sign := float(side)
+		var z := sign * 14.0
+		_slab("HoopPole", Vector3(0.2, 3.05, 0.2), origin + Vector3(0, 1.52, z), POLE_MAT, court)
+		_slab("Backboard", Vector3(1.8, 1.05, 0.1), origin + Vector3(0, 3.05, z - sign * 0.3), POLE_MAT, court)
+
+
+func _court_line(parent: Node, a: Vector3, b: Vector3) -> void:
+	var length := a.distance_to(b)
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(length, 0.03, 0.08)
+	mesh.material = LINE_MAT
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = "CourtLine"
+	mesh_instance.mesh = mesh
+	mesh_instance.position = (a + b) * 0.5 + Vector3(0, 0.11, 0)
+	mesh_instance.rotation.y = -atan2(b.z - a.z, b.x - a.x)
+	parent.add_child(mesh_instance)
 
 
 ## A box mesh + collider (StaticBody so it's walkable once integrated). Returns

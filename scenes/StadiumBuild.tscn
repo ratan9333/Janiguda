@@ -41,7 +41,20 @@ shadow_enabled = true
 shadow_blur = 1.5
 
 [node name="FlyCamera" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 25, 90)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 55, 130)
+current = true
 fov = 65.0
 far = 2000.0
 script = ExtResource("2_cam")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Controls" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 900.0
+offset_bottom = 70.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+text = "HAL Stadium build  ·  Click window first, then:  WASD fly · mouse look · Shift boost · Space/Ctrl up-down · Esc free mouse"
