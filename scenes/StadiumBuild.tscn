@@ -31,8 +31,11 @@ script = ExtResource("1_build")
 [node name="FieldAnchor" type="Marker3D" parent="."]
 transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, 0, 0, 0)
 
-[node name="GalleryAnchor" type="Marker3D" parent="."]
-transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, -40, 0, 25)
+[node name="GalleryStraightAnchor" type="Marker3D" parent="."]
+transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, -46, 0, 0)
+
+[node name="GalleryCurvedAnchor" type="Marker3D" parent="."]
+transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, 6, 0, 52)
 
 [node name="CourtAnchor" type="Marker3D" parent="."]
 transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, -62, 0, 58)

@@ -14,6 +14,14 @@ extends Node3D
 ##
 ## Axes: +X = east, +Z = south. 1 unit = 1 metre.
 
+## Curved-gallery shape controls. Drag these in the Inspector to experiment:
+## bigger radius = gentler curve; bigger arc = wraps further around.
+@export_group("Curved gallery shape")
+@export_range(20, 200) var gallery_curve_radius: float = 70.0:
+	set(v): gallery_curve_radius = v; _request_rebuild()
+@export_range(5, 120) var gallery_curve_arc_deg: float = 40.0:
+	set(v): gallery_curve_arc_deg = v; _request_rebuild()
+
 const FIELD_MAT := preload("res://materials/field_dirt.tres")
 const LINE_MAT := preload("res://materials/pitch_lines.tres")
 const CONCRETE_MAT := preload("res://materials/stand_concrete.tres")
@@ -39,6 +47,11 @@ func _ready() -> void:
 	_rebuild()
 
 
+func _request_rebuild() -> void:
+	if is_inside_tree():
+		_rebuild()
+
+
 func _rebuild() -> void:
 	# Fixed, real geometry under a throwaway node.
 	var existing := get_node_or_null("Generated")
@@ -54,7 +67,8 @@ func _rebuild() -> void:
 
 	# Placeable geometry parented under the draggable anchors.
 	_populate("FieldAnchor", _build_field)
-	_populate("GalleryAnchor", _build_gallery)
+	_populate("GalleryStraightAnchor", _build_gallery_straight)
+	_populate("GalleryCurvedAnchor", _build_gallery_curved)
 	_populate("CourtAnchor", _build_court)
 	_populate("HockeyAnchor", _build_hockey)
 
@@ -170,20 +184,38 @@ func _build_field(anchor: Node) -> void:
 			_slab("Lights", Vector3(2.2, 0.9, 0.5), base + Vector3(0, 15.0, 0), POLE_MAT, anchor)
 
 
-## Open L-gallery. Its corner sits at the anchor; west arm runs -X, south arm
-## runs +Z. Move/rotate the anchor to line it up against the field.
-func _build_gallery(anchor: Node) -> void:
+## A STRAIGHT stand: terrace rows are boxes in a line. Each higher row steps
+## back (+Z) and up (+Y). This is the simplest kind of stand.
+func _build_gallery_straight(anchor: Node) -> void:
 	var rows := 10
+	var depth := 0.8      # how deep each step is
+	var rise := 0.36      # how tall each step is
+	var length := 90.0    # how long the stand runs (along X)
+	for i in range(rows):
+		_slab("Row%d" % i, Vector3(length, rise, depth),
+			Vector3(0, i * rise + rise * 0.5, i * depth), CONCRETE_MAT, anchor)
+
+
+## A CURVED stand: same idea, but instead of a straight line, each row is a ring
+## of short boxes placed along an ARC. We step an ANGLE across the arc and rotate
+## each box to follow the curve. Bigger radius = gentler curve.
+func _build_gallery_curved(anchor: Node) -> void:
+	var rows := 8
 	var depth := 0.8
 	var rise := 0.36
-	var arm_z := 90.0
-	var arm_x := 70.0
-	for i in range(rows):
-		_slab("WestRow%d" % i, Vector3(depth, rise, arm_z),
-			Vector3(-i * depth, i * rise + rise * 0.5, arm_z * 0.5), CONCRETE_MAT, anchor)
-	for i in range(rows):
-		_slab("SouthRow%d" % i, Vector3(arm_x, rise, depth),
-			Vector3(arm_x * 0.5, i * rise + rise * 0.5, i * depth), CONCRETE_MAT, anchor)
+	var radius := gallery_curve_radius
+	var arc := deg_to_rad(gallery_curve_arc_deg)
+	var segments := 26
+	for r in range(rows):
+		var ring_radius := radius + r * depth
+		for s in range(segments):
+			var t := float(s) / (segments - 1)
+			var angle := -arc * 0.5 + arc * t
+			# Point on the arc, shifted so the front-centre sits at the anchor.
+			var pos := Vector3(sin(angle) * ring_radius, r * rise + rise * 0.5, cos(angle) * ring_radius - radius)
+			var seg_width := ring_radius * (arc / segments) * 1.2
+			var box := _slab("Curve_%d_%d" % [r, s], Vector3(seg_width, rise, depth), pos, CONCRETE_MAT, anchor)
+			box.rotation.y = -angle  # turn each box to follow the curve
 
 
 func _build_court(anchor: Node) -> void:
