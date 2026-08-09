@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+; Surrounding ground around the stadium (dry grass / scrub earth). To texture:
+; a dry-grass or savanna-ground texture, uv1_scale around Vector3 60, 60, 60.
+[resource]
+albedo_color = Color(0.36, 0.37, 0.26, 1)
+roughness = 1.0
