@@ -28,6 +28,18 @@ adjustment_saturation = 1.05
 [node name="StadiumBuild" type="Node3D" unique_id=282938332]
 script = ExtResource("1_build")
 
+[node name="FieldAnchor" type="Marker3D" parent="."]
+transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, 0, 0, 0)
+
+[node name="GalleryAnchor" type="Marker3D" parent="."]
+transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, -40, 0, 25)
+
+[node name="CourtAnchor" type="Marker3D" parent="."]
+transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, -62, 0, 58)
+
+[node name="HockeyAnchor" type="Marker3D" parent="."]
+transform = Transform3D(0.8192, 0, -0.5736, 0, 1, 0, 0.5736, 0, 0.8192, 78, 0, -60)
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=313712687]
 environment = SubResource("Env")
 

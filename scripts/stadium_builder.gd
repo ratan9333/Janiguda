@@ -1,34 +1,18 @@
 @tool
 extends Node3D
 
-## HAL ground, Sunabeda. A @tool script: everything renders in the EDITOR and
-## rebuilds live when you change the placement values below.
+## HAL ground, Sunabeda. A @tool script: everything renders in the EDITOR.
 ##
-## The dirt ground outline and the roads are REAL (from OpenStreetMap). The
-## football complex, basketball court and hockey ground are placed by you using
-## the grouped offset + rotation values in the Inspector - drag them to line up
-## with the satellite reference.
+## The dirt ground outline and roads are REAL (OpenStreetMap). The football
+## field, gallery, basketball court and hockey ground are each parented to a
+## draggable ANCHOR node (FieldAnchor, GalleryAnchor, CourtAnchor, HockeyAnchor).
 ##
-## Axes: +X = east, +Z = south (-Z = north, -X = west). 1 unit = 1 metre.
-## Rotation is around Y (top-down); positive spins one way, negative the other.
-
-@export_group("Football complex (field + gallery + lights)")
-@export var complex_offset: Vector3 = Vector3.ZERO:
-	set(v): complex_offset = v; _request_rebuild()
-@export_range(-180, 180) var complex_rotation_deg: float = -35.0:
-	set(v): complex_rotation_deg = v; _request_rebuild()
-
-@export_group("Basketball court")
-@export var court_offset: Vector3 = Vector3.ZERO:
-	set(v): court_offset = v; _request_rebuild()
-@export_range(-180, 180) var court_rotation_deg: float = -35.0:
-	set(v): court_rotation_deg = v; _request_rebuild()
-
-@export_group("Hockey ground")
-@export var hockey_offset: Vector3 = Vector3.ZERO:
-	set(v): hockey_offset = v; _request_rebuild()
-@export_range(-180, 180) var hockey_rotation_deg: float = -35.0:
-	set(v): hockey_rotation_deg = v; _request_rebuild()
+## To place a piece: click its anchor in the Scene panel, press W (move) or
+## E (rotate), and drag it in the viewport. The geometry moves with the anchor -
+## no numbers, no running. Each piece is independent (gallery is NOT attached to
+## the field).
+##
+## Axes: +X = east, +Z = south. 1 unit = 1 metre.
 
 const FIELD_MAT := preload("res://materials/field_dirt.tres")
 const LINE_MAT := preload("res://materials/pitch_lines.tres")
@@ -44,10 +28,6 @@ const FIELD_HALF_Z := 54.0
 const LINE_W := 0.12
 const LINE_Y := 0.06
 
-# Default base positions (offsets add to these). Court to the SW, hockey to NE.
-const COURT_BASE := Vector3(-62.0, 0, 58.0)
-const HOCKEY_BASE := Vector3(78.0, 0, -60.0)
-
 const OSM_CENTER_LAT := 18.7244769
 const OSM_CENTER_LON := 82.82651795
 const STADIUM_WAY_ID := 231036048
@@ -59,12 +39,8 @@ func _ready() -> void:
 	_rebuild()
 
 
-func _request_rebuild() -> void:
-	if is_inside_tree():
-		_rebuild()
-
-
 func _rebuild() -> void:
+	# Fixed, real geometry under a throwaway node.
 	var existing := get_node_or_null("Generated")
 	if existing:
 		existing.free()
@@ -75,9 +51,23 @@ func _rebuild() -> void:
 	build_real_roads()
 	build_real_compound()
 	build_boundary_trees()
-	build_football_complex()
-	build_basketball_court()
-	build_hockey_ground()
+
+	# Placeable geometry parented under the draggable anchors.
+	_populate("FieldAnchor", _build_field)
+	_populate("GalleryAnchor", _build_gallery)
+	_populate("CourtAnchor", _build_court)
+	_populate("HockeyAnchor", _build_hockey)
+
+
+## Clear an anchor's old geometry and rebuild it there. Geometry is a child of
+## the anchor, so dragging the anchor later moves it with no rebuild needed.
+func _populate(anchor_name: String, builder: Callable) -> void:
+	var anchor := get_node_or_null(anchor_name)
+	if anchor == null:
+		return
+	for child in anchor.get_children():
+		child.free()
+	builder.call(anchor)
 
 
 # --- real, fixed ---
@@ -136,8 +126,6 @@ func build_real_compound() -> void:
 	ground.add_child(instance)
 
 
-## Trees lining the real ground boundary (as in the satellite - a ring of
-## eucalyptus hugging the outline), plus a little scatter.
 func build_boundary_trees() -> void:
 	var pts := _compound_points()
 	if pts.size() < 3:
@@ -157,78 +145,69 @@ func build_boundary_trees() -> void:
 			_eucalyptus(trees, Vector3(p.x, 0, p.z), rng.randf_range(10.0, 16.0))
 
 
-# --- placeable (offset + rotation) ---
+# --- placeable pieces (built under their anchor, local coords) ---
 
-func build_football_complex() -> void:
-	var complex := _group("FootballComplex")
-	complex.position = complex_offset
-	complex.rotation.y = deg_to_rad(complex_rotation_deg)
-
-	# Field markings.
+func _build_field(anchor: Node) -> void:
 	var hx := FIELD_HALF_X
 	var hz := FIELD_HALF_Z
-	_line(complex, Vector3(-hx, 0, -hz), Vector3(hx, 0, -hz))
-	_line(complex, Vector3(-hx, 0, hz), Vector3(hx, 0, hz))
-	_line(complex, Vector3(-hx, 0, -hz), Vector3(-hx, 0, hz))
-	_line(complex, Vector3(hx, 0, -hz), Vector3(hx, 0, hz))
-	_line(complex, Vector3(-hx, 0, 0), Vector3(hx, 0, 0))
-	_circle(complex, 9.15, 48)
+	_line(anchor, Vector3(-hx, 0, -hz), Vector3(hx, 0, -hz))
+	_line(anchor, Vector3(-hx, 0, hz), Vector3(hx, 0, hz))
+	_line(anchor, Vector3(-hx, 0, -hz), Vector3(-hx, 0, hz))
+	_line(anchor, Vector3(hx, 0, -hz), Vector3(hx, 0, hz))
+	_line(anchor, Vector3(-hx, 0, 0), Vector3(hx, 0, 0))
+	_circle(anchor, 9.15, 48)
 	for side in [-1.0, 1.0]:
 		var sign := float(side)
 		var z := sign * hz
-		_slab("GoalPostL", Vector3(0.12, 2.44, 0.12), Vector3(-3.66, 1.22, z), LINE_MAT, complex)
-		_slab("GoalPostR", Vector3(0.12, 2.44, 0.12), Vector3(3.66, 1.22, z), LINE_MAT, complex)
-		_slab("GoalBar", Vector3(7.32, 0.12, 0.12), Vector3(0, 2.44, z), LINE_MAT, complex)
-
-	# Open L-gallery on the west + south sides.
-	var rows := 10
-	var depth := 0.8
-	var rise := 0.36
-	var west_front := -(hx + 10.0)
-	for i in range(rows):
-		_slab("WestRow%d" % i, Vector3(depth, rise, hz * 2.0),
-			Vector3(west_front - i * depth, i * rise + rise * 0.5, 0), CONCRETE_MAT, complex)
-	var south_front := hz + 10.0
-	for i in range(rows):
-		_slab("SouthRow%d" % i, Vector3(hx * 2.0, rise, depth),
-			Vector3(0, i * rise + rise * 0.5, south_front + i * depth), CONCRETE_MAT, complex)
-
+		_slab("GoalPostL", Vector3(0.12, 2.44, 0.12), Vector3(-3.66, 1.22, z), LINE_MAT, anchor)
+		_slab("GoalPostR", Vector3(0.12, 2.44, 0.12), Vector3(3.66, 1.22, z), LINE_MAT, anchor)
+		_slab("GoalBar", Vector3(7.32, 0.12, 0.12), Vector3(0, 2.44, z), LINE_MAT, anchor)
 	# Floodlight poles at the field corners.
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
 			var base := Vector3(float(sx) * (hx + 8.0), 0, float(sz) * (hz + 4.0))
-			_slab("Pole", Vector3(0.35, 15.0, 0.35), base + Vector3(0, 7.5, 0), POLE_MAT, complex)
-			_slab("Lights", Vector3(2.2, 0.9, 0.5), base + Vector3(0, 15.0, 0), POLE_MAT, complex)
+			_slab("Pole", Vector3(0.35, 15.0, 0.35), base + Vector3(0, 7.5, 0), POLE_MAT, anchor)
+			_slab("Lights", Vector3(2.2, 0.9, 0.5), base + Vector3(0, 15.0, 0), POLE_MAT, anchor)
 
 
-func build_basketball_court() -> void:
-	var court := _group("BasketballCourt")
-	court.position = COURT_BASE + court_offset
-	court.rotation.y = deg_to_rad(court_rotation_deg)
-	_slab("CourtSurface", Vector3(15.0, 0.15, 30.0), Vector3(0, 0.02, 0), COURT_MAT, court)
-	_court_line(court, Vector3(-7.5, 0, -15), Vector3(7.5, 0, -15))
-	_court_line(court, Vector3(-7.5, 0, 15), Vector3(7.5, 0, 15))
-	_court_line(court, Vector3(-7.5, 0, -15), Vector3(-7.5, 0, 15))
-	_court_line(court, Vector3(7.5, 0, -15), Vector3(7.5, 0, 15))
-	_court_line(court, Vector3(-7.5, 0, 0), Vector3(7.5, 0, 0))
+## Open L-gallery. Its corner sits at the anchor; west arm runs -X, south arm
+## runs +Z. Move/rotate the anchor to line it up against the field.
+func _build_gallery(anchor: Node) -> void:
+	var rows := 10
+	var depth := 0.8
+	var rise := 0.36
+	var arm_z := 90.0
+	var arm_x := 70.0
+	for i in range(rows):
+		_slab("WestRow%d" % i, Vector3(depth, rise, arm_z),
+			Vector3(-i * depth, i * rise + rise * 0.5, arm_z * 0.5), CONCRETE_MAT, anchor)
+	for i in range(rows):
+		_slab("SouthRow%d" % i, Vector3(arm_x, rise, depth),
+			Vector3(arm_x * 0.5, i * rise + rise * 0.5, i * depth), CONCRETE_MAT, anchor)
+
+
+func _build_court(anchor: Node) -> void:
+	_slab("CourtSurface", Vector3(15.0, 0.15, 30.0), Vector3(0, 0.02, 0), COURT_MAT, anchor)
+	_court_line(anchor, Vector3(-7.5, 0, -15), Vector3(7.5, 0, -15))
+	_court_line(anchor, Vector3(-7.5, 0, 15), Vector3(7.5, 0, 15))
+	_court_line(anchor, Vector3(-7.5, 0, -15), Vector3(-7.5, 0, 15))
+	_court_line(anchor, Vector3(7.5, 0, -15), Vector3(7.5, 0, 15))
+	_court_line(anchor, Vector3(-7.5, 0, 0), Vector3(7.5, 0, 0))
 	for side in [-1.0, 1.0]:
 		var sign := float(side)
 		var z := sign * 14.0
-		_slab("HoopPole", Vector3(0.2, 3.05, 0.2), Vector3(0, 1.52, z), POLE_MAT, court)
-		_slab("Backboard", Vector3(1.8, 1.05, 0.1), Vector3(0, 3.05, z - sign * 0.3), POLE_MAT, court)
+		_slab("HoopPole", Vector3(0.2, 3.05, 0.2), Vector3(0, 1.52, z), POLE_MAT, anchor)
+		_slab("Backboard", Vector3(1.8, 1.05, 0.1), Vector3(0, 3.05, z - sign * 0.3), POLE_MAT, anchor)
 
 
-func build_hockey_ground() -> void:
-	var hockey := _group("OldHockeyGround")
-	hockey.position = HOCKEY_BASE + hockey_offset
-	hockey.rotation.y = deg_to_rad(hockey_rotation_deg)
+func _build_hockey(anchor: Node) -> void:
 	var hx := 45.5
 	var hz := 27.5
-	_slab("HockeyField", Vector3(hx * 2, 0.16, hz * 2), Vector3(0, -0.08, 0), GRASS_MAT, hockey)
+	_slab("HockeyField", Vector3(hx * 2, 0.16, hz * 2), Vector3(0, -0.08, 0), GRASS_MAT, anchor)
 	for pair in [[Vector3(-hx,0,-hz), Vector3(hx,0,-hz)], [Vector3(-hx,0,hz), Vector3(hx,0,hz)],
 			[Vector3(-hx,0,-hz), Vector3(-hx,0,hz)], [Vector3(hx,0,-hz), Vector3(hx,0,hz)],
 			[Vector3(0,0,-hz), Vector3(0,0,hz)]]:
-		_thin_line(hockey, pair[0], pair[1], 0.1, 0.1)
+		_thin_line(anchor, pair[0], pair[1], 0.1, 0.1)
 
 
 # --- helpers ---
