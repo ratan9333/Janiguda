@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+; Rural road / paved path around the ground. To texture: worn asphalt or a
+; packed-gravel road texture, uv1_scale around Vector3 20, 20, 20.
+[resource]
+albedo_color = Color(0.26, 0.25, 0.24, 1)
+roughness = 0.95

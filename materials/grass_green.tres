@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+; Green grass (hockey ground, verges). To texture: a grass/turf texture,
+; uv1_scale around Vector3 40, 40, 40.
+[resource]
+albedo_color = Color(0.31, 0.42, 0.22, 1)
+roughness = 1.0
