@@ -94,6 +94,7 @@ func _rebuild() -> void:
 	_populate("StairsAnchor", _build_stairs)
 	_populate("GateAnchor", _build_gate)
 	_populate("RoadPlazaAnchor", _build_road_plaza)
+	_populate("ComplexRoadAnchor", _build_complex_road)
 
 
 ## Clear an anchor's old geometry and rebuild it there. Geometry is a child of
@@ -136,6 +137,12 @@ func build_real_roads() -> void:
 			width = 5.0
 		elif kind in ["service", "track", "path", "footway"]:
 			width = 3.0
+		# Broaden roads that pass close to the stadium so the approach is wide.
+		var nearest := INF
+		for p in points:
+			nearest = minf(nearest, Vector2(p.x, p.z).length())
+		if nearest < 70.0:
+			width = maxf(width * 1.8, 14.0)
 		_road_strip(roads, points, width)
 
 
@@ -282,6 +289,12 @@ func build_boundary_trees() -> void:
 	var trees := _group("BoundaryTrees")
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 99
+	# Keep the entrance clear of trees (around the gate) - you'll plant the
+	# south side yourself.
+	var clear_angle := 1000.0
+	var gate := get_node_or_null("GateAnchor")
+	if gate and gate is Node3D:
+		clear_angle = rad_to_deg(atan2(gate.position.z, gate.position.x))
 	for i in range(pts.size() - 1):
 		var a := pts[i]
 		var b := pts[i + 1]
@@ -289,6 +302,8 @@ func build_boundary_trees() -> void:
 		var n := maxi(1, int(seg / 9.0))
 		for j in range(n):
 			var p := a.lerp(b, float(j) / n)
+			if clear_angle < 900.0 and absf(_angle_diff(rad_to_deg(atan2(p.z, p.x)), clear_angle)) < 24.0:
+				continue
 			var outward := Vector3(p.x, 0, p.z).normalized() * 5.0
 			p += outward + Vector3(rng.randf_range(-2, 2), 0, rng.randf_range(-2, 2))
 			_eucalyptus(trees, Vector3(p.x, 0, p.z), rng.randf_range(10.0, 16.0))
@@ -343,7 +358,13 @@ func _build_stairs(anchor: Node) -> void:
 ## stadium). Place it over the road area at the base of the stairs. It builds at
 ## the outer level regardless of the anchor's own height.
 func _build_road_plaza(anchor: Node) -> void:
-	_slab("Plaza", Vector3(50.0, 0.2, 34.0), Vector3(0, OUTER_LEVEL + 0.1, 0), ROAD_MAT, anchor)
+	_slab("Plaza", Vector3(60.0, 0.2, 40.0), Vector3(0, OUTER_LEVEL + 0.1, 0), ROAD_MAT, anchor)
+
+
+## The ELEVATED road serving the stadium complex, on top of the raised ground
+## (y=0). Runs along local X. Drag/rotate it along the complex.
+func _build_complex_road(anchor: Node) -> void:
+	_slab("ComplexRoad", Vector3(70.0, 0.16, 9.0), Vector3(0, 0.12, 0), ROAD_MAT, anchor)
 
 
 ## Dark-green metal gate: two posts, a top bar, and two gate leaves.
