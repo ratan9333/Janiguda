@@ -44,10 +44,21 @@ const GRASS_MAT := preload("res://materials/grass_green.tres")
 const ROAD_MAT := preload("res://materials/road_surface.tres")
 const GATE_MAT := preload("res://materials/gate_metal.tres")
 
-## The compound (all your placed pieces) stays at ground level y=0. The outside
-## world - surrounding ground and roads - sits this far BELOW, so the stadium
-## reads as elevated. A sloped embankment and entrance stairs connect the two.
-const OUTER_LEVEL := -4.0
+## Elevation controls, live in the Inspector. The compound (all your placed
+## pieces) stays at y=0; the outer world sits elevation_m BELOW it. embankment_run
+## is how far the connecting slope spreads outward.
+@export_group("Elevation (metres)")
+@export_range(0.0, 10.0) var elevation_m: float = 4.0:
+	set(v):
+		elevation_m = v
+		_request_rebuild()
+@export_range(2.0, 24.0) var embankment_run: float = 8.0:
+	set(v):
+		embankment_run = v
+		_request_rebuild()
+
+# Derived each rebuild from elevation_m (the outer world's Y level).
+var OUTER_LEVEL := -4.0
 
 const LINE_W := 0.12
 const LINE_Y := 0.06
@@ -69,6 +80,7 @@ func _request_rebuild() -> void:
 
 
 func _rebuild() -> void:
+	OUTER_LEVEL = -elevation_m
 	# Fixed, real geometry under a throwaway node.
 	var existing := get_node_or_null("Generated")
 	if existing:
@@ -95,6 +107,10 @@ func _rebuild() -> void:
 	_populate("GateAnchor", _build_gate)
 	_populate("RoadPlazaAnchor", _build_road_plaza)
 	_populate("ComplexRoadAnchor", _build_complex_road)
+	_populate("SportsComplexAnchor", _build_sports_complex)
+	_populate("ToiletAnchor", _build_toilet)
+	_populate("WelcomeArchAnchor", _build_welcome_arch)
+	_populate("RoundaboutAnchor", _build_roundabout)
 
 
 ## Clear an anchor's old geometry and rebuild it there. Geometry is a child of
@@ -187,7 +203,7 @@ func build_embankment() -> void:
 	if pts.size() < 3:
 		return
 	var group := _group("Embankment")
-	var run := 8.0
+	var run := embankment_run
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for i in range(pts.size() - 1):
@@ -358,13 +374,94 @@ func _build_stairs(anchor: Node) -> void:
 ## stadium). Place it over the road area at the base of the stairs. It builds at
 ## the outer level regardless of the anchor's own height.
 func _build_road_plaza(anchor: Node) -> void:
-	_slab("Plaza", Vector3(60.0, 0.2, 40.0), Vector3(0, OUTER_LEVEL + 0.1, 0), ROAD_MAT, anchor)
+	# Thin, with its top flush with the real roads (which sit at OUTER_LEVEL+0.06),
+	# so it reads as ground, not a floating layer.
+	_slab("Plaza", Vector3(60.0, 0.12, 40.0), Vector3(0, OUTER_LEVEL, 0), ROAD_MAT, anchor)
 
 
 ## The ELEVATED road serving the stadium complex, on top of the raised ground
 ## (y=0). Runs along local X. Drag/rotate it along the complex.
 func _build_complex_road(anchor: Node) -> void:
-	_slab("ComplexRoad", Vector3(70.0, 0.16, 9.0), Vector3(0, 0.12, 0), ROAD_MAT, anchor)
+	_slab("ComplexRoad", Vector3(70.0, 0.16, 9.0), Vector3(0, 0.1, 0), ROAD_MAT, anchor)
+
+
+## Indoor sports centre / office at ground level (rear faces the stadium, -Z).
+## Behind it (-Z) is the quiet hideout spot for dealing.
+func _build_sports_complex(anchor: Node) -> void:
+	var base := OUTER_LEVEL
+	_slab("Hall", Vector3(18.0, 5.0, 12.0), Vector3(0, base + 2.5, 0), CONCRETE_MAT, anchor)
+	_slab("Roof", Vector3(19.0, 0.4, 13.0), Vector3(0, base + 5.2, 0), CONCRETE_MAT, anchor)
+	# Entrance + windows on the front (+Z).
+	var door := StandardMaterial3D.new()
+	door.albedo_color = Color("2c3a30")
+	var d := _slab("Door", Vector3(2.4, 3.0, 0.2), Vector3(0, base + 1.5, 6.05), CONCRETE_MAT, anchor)
+	d.get_child(0).material_override = door
+	for wx in [-5.5, -2.5, 2.5, 5.5]:
+		var w := _slab("Window", Vector3(1.6, 1.4, 0.15), Vector3(wx, base + 3.0, 6.05), CONCRETE_MAT, anchor)
+		w.get_child(0).material_override = door
+
+
+## Small public toilet block, always closed.
+func _build_toilet(anchor: Node) -> void:
+	var base := OUTER_LEVEL
+	_slab("Toilet", Vector3(4.5, 2.8, 3.2), Vector3(0, base + 1.4, 0), CONCRETE_MAT, anchor)
+	_slab("ToiletRoof", Vector3(4.9, 0.25, 3.6), Vector3(0, base + 2.9, 0), CONCRETE_MAT, anchor)
+	var closed := StandardMaterial3D.new()
+	closed.albedo_color = Color("2c3a30")
+	var d := _slab("Door", Vector3(1.0, 2.0, 0.15), Vector3(0, base + 1.0, 1.65), CONCRETE_MAT, anchor)
+	d.get_child(0).material_override = closed
+
+
+## West secondary gate (closed) with a WELCOME arch over it. Sits at compound
+## level (in the wall line), same green metal as the main gate.
+func _build_welcome_arch(anchor: Node) -> void:
+	_slab("ArchPostL", Vector3(0.6, 4.2, 0.6), Vector3(-3.4, 2.1, 0), CONCRETE_MAT, anchor)
+	_slab("ArchPostR", Vector3(0.6, 4.2, 0.6), Vector3(3.4, 2.1, 0), CONCRETE_MAT, anchor)
+	_slab("ArchBeam", Vector3(7.4, 1.1, 0.7), Vector3(0, 4.6, 0), GATE_MAT, anchor)
+	# Closed gate leaves.
+	_slab("GateL", Vector3(3.1, 2.8, 0.12), Vector3(-1.55, 1.4, 0), GATE_MAT, anchor)
+	_slab("GateR", Vector3(3.1, 2.8, 0.12), Vector3(1.55, 1.4, 0), GATE_MAT, anchor)
+	# "WELCOME" sign on the arch beam.
+	var label := Label3D.new()
+	label.text = "WELCOME"
+	label.font_size = 96
+	label.pixel_size = 0.012
+	label.modulate = Color("f2f2e6")
+	label.outline_size = 12
+	label.position = Vector3(0, 4.6, 0.4)
+	anchor.add_child(label)
+
+
+## Small roundabout island (1 m) with a light pole, at a road junction (ground
+## level).
+func _build_roundabout(anchor: Node) -> void:
+	var base := OUTER_LEVEL
+	var island := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.5
+	cyl.bottom_radius = 0.5
+	cyl.height = 0.3
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color("6a7b52")
+	cyl.material = mat
+	island.mesh = cyl
+	island.position = Vector3(0, base + 0.15, 0)
+	anchor.add_child(island)
+	_slab("LightPole", Vector3(0.2, 6.0, 0.2), Vector3(0, base + 3.0, 0), POLE_MAT, anchor)
+	# Glowing lamp head.
+	var lamp := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 0.35
+	sphere.height = 0.7
+	var lamp_mat := StandardMaterial3D.new()
+	lamp_mat.albedo_color = Color("fff3cf")
+	lamp_mat.emission_enabled = true
+	lamp_mat.emission = Color("fff3cf")
+	lamp_mat.emission_energy_multiplier = 2.0
+	sphere.material = lamp_mat
+	lamp.mesh = sphere
+	lamp.position = Vector3(0, base + 6.0, 0)
+	anchor.add_child(lamp)
 
 
 ## Dark-green metal gate: two posts, a top bar, and two gate leaves.

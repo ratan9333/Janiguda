@@ -61,8 +61,20 @@ transform = Transform3D(0.69165355, 0, -0.7222294, 0, 1, 0, 0.7222294, 0, 0.6916
 [node name="RoadPlazaAnchor" type="Marker3D" parent="." unique_id=943029427]
 transform = Transform3D(-0.37044042, 0, 0.7079839, 0, 1, 0, -0.4719893, 0, -0.5556605, -74.7522, 0, 83.67041)
 
-[node name="ComplexRoadAnchor" type="Marker3D" parent="."]
-transform = Transform3D(-0.7679221, 0, -0.6405701, 0, 1, 0, 0.6405701, 0, -0.7679221, -46, 0, -18)
+[node name="ComplexRoadAnchor" type="Marker3D" parent="." unique_id=182026669]
+transform = Transform3D(0.49654204, 0, -0.91037464, 0, 1, 0, 1.0924497, 0, 0.413785, -108.529724, 0, 34.658325)
+
+[node name="SportsComplexAnchor" type="Marker3D" parent="."]
+transform = Transform3D(0.6916, 0, -0.7222, 0, 1, 0, 0.7222, 0, 0.6916, -42, 0, 88)
+
+[node name="ToiletAnchor" type="Marker3D" parent="."]
+transform = Transform3D(0.6916, 0, -0.7222, 0, 1, 0, 0.7222, 0, 0.6916, -56, 0, 92)
+
+[node name="WelcomeArchAnchor" type="Marker3D" parent="."]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -104, 0, 8)
+
+[node name="RoundaboutAnchor" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -72, 0, 96)
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=313712687]
 environment = SubResource("Env")
