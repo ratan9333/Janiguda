@@ -18,7 +18,10 @@ const MODEL_PATHS := [
 ## The placeholder is modelled around the hips; this lifts it so the feet sit at
 ## the rig's origin (y=0), matching how Mixamo/Blender models export - feet on
 ## the floor. Keeps the swap to a real model seamless.
-const FOOT_OFFSET := 0.97
+# The raw placeholder is ~2.38 m tall; scale it to a realistic 1.8 m and keep
+# the feet at the rig origin.
+const PLACEHOLDER_SCALE := 0.756
+const FOOT_OFFSET := 0.733
 
 ## True while the placeholder is in use. player.gd checks this to decide
 ## between hand-driven limb rotation and real animation playback.
@@ -93,6 +96,7 @@ func _build_placeholder() -> void:
 	var body := Node3D.new()
 	body.name = "PlaceholderBody"
 	body.position.y = FOOT_OFFSET
+	body.scale = Vector3.ONE * PLACEHOLDER_SCALE
 	add_child(body)
 
 	_add_box(body, "Torso", Vector3(0.72, 0.82, 0.38), Vector3(0, 0.34, 0), Color("375a8c"))

@@ -73,6 +73,7 @@ func _rebuild() -> void:
 	build_ground_base()
 	build_real_roads()
 	build_real_compound()
+	build_boundary_wall()
 	build_boundary_trees()
 
 	# Placeable geometry parented under the draggable anchors.
@@ -81,6 +82,7 @@ func _rebuild() -> void:
 	_populate("GalleryCurvedAnchor", _build_gallery_curved)
 	_populate("CourtAnchor", _build_court)
 	_populate("HockeyAnchor", _build_hockey)
+	_populate("MarketAnchor", _build_market)
 
 
 ## Clear an anchor's old geometry and rebuild it there. Geometry is a child of
@@ -148,6 +150,68 @@ func build_real_compound() -> void:
 	instance.name = "GroundFill"
 	instance.mesh = mesh
 	ground.add_child(instance)
+
+
+## Old-style cemented compound wall following the real brown outline: ~3 m
+## panels, each with a small triangular coping on top, joined all the way round.
+## Gaps are left for the three gates (main entrance SW, closed gate W, back E).
+func build_boundary_wall() -> void:
+	var pts := _compound_points()
+	if pts.size() < 2:
+		return
+	var wall := _group("CementBoundary")
+	var panel_w := 3.0
+	var wall_h := 2.2
+	var thick := 0.3
+	# Gate centres as compass angles from the ground centre (atan2(z, x)):
+	# E = 0, S = 90, W = 180, N = -90, SW = 135. Half-width in degrees.
+	var gates := [135.0, 180.0, 0.0]
+	var gate_half := 8.0
+	for i in range(pts.size() - 1):
+		var a := pts[i]; a.y = 0.0
+		var b := pts[i + 1]; b.y = 0.0
+		var edge := b - a
+		var length := edge.length()
+		if length < 0.1:
+			continue
+		var dir := edge.normalized()
+		var count := maxi(1, int(round(length / panel_w)))
+		var step := length / count
+		for j in range(count):
+			var centre := a + dir * (step * (j + 0.5))
+			var ang := rad_to_deg(atan2(centre.z, centre.x))
+			var in_gate := false
+			for g in gates:
+				if absf(_angle_diff(ang, g)) < gate_half:
+					in_gate = true
+					break
+			if in_gate:
+				continue
+			_wall_panel(wall, centre, dir, step * 0.98, wall_h, thick)
+
+
+func _wall_panel(parent: Node, centre: Vector3, dir: Vector3, width: float, height: float, thick: float) -> void:
+	var yaw := -atan2(dir.z, dir.x)
+	var panel := _slab("Panel", Vector3(width, height, thick), centre + Vector3(0, height * 0.5, 0), CONCRETE_MAT, parent)
+	panel.rotation.y = yaw
+	# Small triangular coping (PrismMesh) capping the panel.
+	var cap := MeshInstance3D.new()
+	var prism := PrismMesh.new()
+	prism.size = Vector3(width, 0.35, thick)
+	prism.material = CONCRETE_MAT
+	cap.mesh = prism
+	cap.position = centre + Vector3(0, height + 0.175, 0)
+	cap.rotation.y = yaw
+	parent.add_child(cap)
+
+
+func _angle_diff(a: float, b: float) -> float:
+	var d := a - b
+	while d > 180.0:
+		d -= 360.0
+	while d < -180.0:
+		d += 360.0
+	return d
 
 
 func build_boundary_trees() -> void:
@@ -240,6 +304,30 @@ func _build_court(anchor: Node) -> void:
 		var z := sign * 14.0
 		_slab("HoopPole", Vector3(0.2, 3.05, 0.2), Vector3(0, 1.52, z), POLE_MAT, anchor)
 		_slab("Backboard", Vector3(1.8, 1.05, 0.1), Vector3(0, 3.05, z - sign * 0.3), POLE_MAT, anchor)
+
+
+## A small old-style market complex: a row of shop units, in line, matching the
+## length of the straight gallery. Sits behind the gallery (its own anchor -
+## drag it into place). Local +Z faces the shop fronts.
+func _build_market(anchor: Node) -> void:
+	var total_length := gallery_length_m
+	var units := maxi(4, int(total_length / 5.5))
+	var unit_w := total_length / units
+	# A continuous back wall / roof slab tying the shops together.
+	_slab("MarketRoof", Vector3(total_length, 0.3, 5.4), Vector3(0, 3.3, 0.2), CONCRETE_MAT, anchor)
+	for i in range(units):
+		var x := -total_length * 0.5 + unit_w * (i + 0.5)
+		# Shop box.
+		_slab("Shop%d" % i, Vector3(unit_w * 0.94, 3.2, 5.0), Vector3(x, 1.6, 0), CONCRETE_MAT, anchor)
+		# Coloured shutter/awning on the front, alternating so the row reads as
+		# separate shops.
+		var awning := StandardMaterial3D.new()
+		awning.albedo_color = [Color("9c4b3b"), Color("3f6f7a"), Color("caa63f"), Color("6a7b52")][i % 4]
+		awning.roughness = 0.9
+		var front := _slab("Front%d" % i, Vector3(unit_w * 0.94, 1.4, 0.2), Vector3(x, 1.1, -2.6), CONCRETE_MAT, anchor)
+		front.get_child(0).material_override = awning
+		# Little awning ledge above the shopfront.
+		_slab("Ledge%d" % i, Vector3(unit_w * 0.94, 0.18, 1.1), Vector3(x, 2.5, -3.0), CONCRETE_MAT, anchor)
 
 
 func _build_hockey(anchor: Node) -> void:
