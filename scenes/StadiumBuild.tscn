@@ -55,6 +55,9 @@ transform = Transform3D(0.33971602, 0, -0.9053599, 0, 1, 0, 0.7242879, 0, 0.4246
 [node name="StairsAnchor" type="Marker3D" parent="." unique_id=2100032276]
 transform = Transform3D(0.66855085, 0, -0.7436664, 0, 1, 0, 0.7436664, 0, 0.66855085, -62.858047, 0, 74.1001)
 
+[node name="StairsAnchor2" type="Marker3D" parent="."]
+transform = Transform3D(0.66855085, 0, -0.7436664, 0, 1, 0, 0.7436664, 0, 0.66855085, -92, 0, 56)
+
 [node name="GateAnchor" type="Marker3D" parent="." unique_id=1814765923]
 transform = Transform3D(0.69165355, 0, -0.7222294, 0, 1, 0, 0.7222294, 0, 0.69165355, -61.68828, 0, 73.00574)
 
@@ -74,7 +77,7 @@ transform = Transform3D(0.6916, 0, -0.7222, 0, 1, 0, 0.7222, 0, 0.6916, -56, 0, 
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -104, 0, 8)
 
 [node name="RoundaboutAnchor" type="Marker3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -72, 0, 96)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -52, 0, 84)
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=313712687]
 environment = SubResource("Env")

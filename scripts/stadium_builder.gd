@@ -100,6 +100,7 @@ func _rebuild() -> void:
 	_populate("MarketAnchor", _build_market)
 	_populate("MarketCurvedAnchor", _build_market)
 	_populate("StairsAnchor", _build_stairs)
+	_populate("StairsAnchor2", _build_stairs)
 	_populate("GateAnchor", _build_gate)
 	_populate("RoadPlazaAnchor", _build_road_plaza)
 	_populate("ComplexRoadAnchor", _build_complex_road)
@@ -388,10 +389,25 @@ func _build_road_plaza(anchor: Node) -> void:
 	_slab("Plaza", Vector3(60.0, 0.12, 40.0), Vector3(0, OUTER_LEVEL, 0), ROAD_MAT, anchor)
 
 
-## The ELEVATED road serving the stadium complex, on top of the raised ground
-## (y=0). Runs along local X. Drag/rotate it along the complex.
+## The ELEVATED road serving the stadium complex. It carries its own raised
+## earth platform down to the outer level (so it never floats), with the road
+## surface on top and a line of trees planted beside it. Runs along local X.
 func _build_complex_road(anchor: Node) -> void:
-	_slab("ComplexRoad", Vector3(70.0, 0.16, 9.0), Vector3(0, 0.1, 0), ROAD_MAT, anchor)
+	var length := 70.0
+	var width := 9.0
+	var road_top := 0.12
+	# Earth platform: fills from the road top straight down to the outer level.
+	var earth_h := road_top - OUTER_LEVEL
+	_slab("RoadEarth", Vector3(length, earth_h, width), Vector3(0, (road_top + OUTER_LEVEL) * 0.5, 0), FIELD_MAT, anchor)
+	# Road surface on top, a little narrower so earth shows at the verges.
+	_slab("ComplexRoad", Vector3(length, 0.16, width - 1.5), Vector3(0, road_top, 0), ROAD_MAT, anchor)
+	# Trees beside the road (both verges), at road level.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 21
+	for zside in [-1.0, 1.0]:
+		for i in range(6):
+			var x := -length * 0.5 + (i + 0.5) * length / 6.0
+			_eucalyptus(anchor, Vector3(x, road_top, float(zside) * (width * 0.5 + 1.8)), rng.randf_range(8.0, 12.0))
 
 
 ## Indoor sports centre / office at ground level (rear faces the stadium, -Z).
@@ -413,11 +429,11 @@ func _build_sports_complex(anchor: Node) -> void:
 ## Small public toilet block, always closed.
 func _build_toilet(anchor: Node) -> void:
 	var base := OUTER_LEVEL
-	_slab("Toilet", Vector3(4.5, 2.8, 3.2), Vector3(0, base + 1.4, 0), CONCRETE_MAT, anchor)
-	_slab("ToiletRoof", Vector3(4.9, 0.25, 3.6), Vector3(0, base + 2.9, 0), CONCRETE_MAT, anchor)
+	_slab("Toilet", Vector3(3.0, 2.6, 2.4), Vector3(0, base + 1.3, 0), CONCRETE_MAT, anchor)
+	_slab("ToiletRoof", Vector3(3.3, 0.22, 2.7), Vector3(0, base + 2.7, 0), CONCRETE_MAT, anchor)
 	var closed := StandardMaterial3D.new()
 	closed.albedo_color = Color("2c3a30")
-	var d := _slab("Door", Vector3(1.0, 2.0, 0.15), Vector3(0, base + 1.0, 1.65), CONCRETE_MAT, anchor)
+	var d := _slab("Door", Vector3(0.9, 1.9, 0.15), Vector3(0, base + 0.95, 1.25), CONCRETE_MAT, anchor)
 	d.get_child(0).material_override = closed
 
 
