@@ -24,6 +24,11 @@ const COYOTE_TIME := 0.12      # jump still works briefly after leaving a ledge
 const JUMP_BUFFER := 0.15      # jump pressed just before landing still fires
 const RUN_FOV_BONUS := 6.0     # subtle FOV widening at speed
 
+# Kicking (footballs, and anything else in the "kickable" group)
+const KICK_RANGE := 2.8
+const KICK_POWER := 9.5
+var kick_timer := 0.0
+
 var rig
 var camera_pivot: Node3D
 var spring_arm: SpringArm3D
@@ -68,6 +73,7 @@ func _ensure_input() -> void:
 		"move_right": KEY_D,
 		"jump": KEY_SPACE,
 		"run": KEY_SHIFT,
+		"kick": KEY_F,
 	}
 	for action in bindings:
 		if not InputMap.has_action(action):
@@ -133,9 +139,39 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 
+	kick_timer = maxf(0.0, kick_timer - delta)
+	if Input.is_action_just_pressed("kick") and kick_timer <= 0.0:
+		_try_kick()
+
 	var speed := Vector2(velocity.x, velocity.z).length()
 	_animate(delta, speed, grounded)
 	_camera_feel(delta, speed)
+
+
+## Kick the nearest ball in front of the player, in the camera's facing
+## direction. Anything in the "kickable" group with a kick() method responds.
+func _try_kick() -> void:
+	kick_timer = 0.4
+	var ball := _nearest_kickable()
+	if ball == null:
+		return
+	var dir := -camera_pivot.global_basis.z
+	dir.y = 0.0
+	dir = dir.normalized()
+	if ball.has_method("kick"):
+		ball.kick(dir, KICK_POWER)
+
+
+func _nearest_kickable() -> Node3D:
+	var best: Node3D = null
+	var best_distance := KICK_RANGE
+	for node in get_tree().get_nodes_in_group("kickable"):
+		if node is Node3D:
+			var d := global_position.distance_to(node.global_position)
+			if d < best_distance:
+				best = node
+				best_distance = d
+	return best
 
 
 func _animate(delta: float, speed: float, grounded: bool) -> void:
@@ -152,7 +188,13 @@ func _animate(delta: float, speed: float, grounded: bool) -> void:
 		rig.play(clip)
 		return
 
-	if not grounded:
+	if kick_timer > 0.15:
+		# Kick: right leg swings forward hard, arms out for balance.
+		_lerp(right_leg, -1.35, delta * 22.0)
+		_lerp(left_leg, 0.12, delta * 14.0)
+		_lerp(left_arm, 0.45, delta * 12.0)
+		_lerp(right_arm, -0.35, delta * 12.0)
+	elif not grounded:
 		_lerp(left_leg, -0.35, delta * 7.0)
 		_lerp(right_leg, 0.45, delta * 7.0)
 		_lerp(left_arm, 0.30, delta * 7.0)
