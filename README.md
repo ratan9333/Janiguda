@@ -1,4 +1,4 @@
-# Semiliguda
+# Semiliguda town
 
 An original open-world game set in the real Sunabeda / Koraput area of Odisha,
 India. Built in Godot 4.7. Inspired by the build-a-business gameplay loop of
