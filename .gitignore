@@ -7,3 +7,6 @@ exports/
 
 # macOS metadata
 .DS_Store
+
+# Blender auto-backups of the previous save
+*.blend1

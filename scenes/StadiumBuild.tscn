@@ -3,6 +3,9 @@
 [ext_resource type="Script" uid="uid://dbnfavsk061ga" path="res://scripts/stadium_builder.gd" id="1_build"]
 [ext_resource type="PackedScene" uid="uid://xghlco4r13pc" path="res://scenes/Player.tscn" id="3_player"]
 [ext_resource type="PackedScene" uid="uid://bc3k6o17wfbx4" path="res://scenes/Football.tscn" id="4_ball"]
+[ext_resource type="PackedScene" uid="uid://blpfbv7sd7pud" path="res://assets/Dirtslope.blend" id="4_mvwal"]
+[ext_resource type="PackedScene" uid="uid://cvtsltvtbiret" path="res://assets/SoccerField.blend" id="5_nhq4h"]
+[ext_resource type="PackedScene" uid="uid://6fx87smtmc6t" path="res://scenes/Playground.tscn" id="6_eiq4b"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.32, 0.5, 0.68, 1)
@@ -39,7 +42,7 @@ transform = Transform3D(0.7860214, -1.7076349e-09, 0.6182848, 1.2765136e-09, 1, 
 transform = Transform3D(-0.7679221, 0, -0.6405701, 0, 1, 0, 0.6405701, 0, -0.7679221, -58.657555, 0, -34.11808)
 
 [node name="GalleryCurvedAnchor" type="Marker3D" parent="." unique_id=2079728438]
-transform = Transform3D(0.7488301, 0, -1.0912284, 0, 1, 0, 1.6368424, 0, 0.4992202, -84.51304, -1.5258789e-05, 31.094086)
+transform = Transform3D(0.8320336, 0, -1.0912284, 0, 1, 0, 1.8187139, 0, 0.49922016, -84.51304, -1.5258789e-05, 31.094086)
 
 [node name="CourtAnchor" type="Marker3D" parent="." unique_id=1498507797]
 transform = Transform3D(0.89038634, 0, 0.45532158, 0, 1, 0, -0.45532158, 0, 0.89038634, -71.70374, 1.5258789e-05, 35.90891)
@@ -51,13 +54,10 @@ transform = Transform3D(0.6270458, 0, -0.7790503, 0, 1, 0, 0.7790503, 0, 0.62704
 transform = Transform3D(-0.7679221, 0, -0.6405701, 0, 1, 0, 0.6405701, 0, -0.7679221, -67.784515, 0, -45.399845)
 
 [node name="MarketCurvedAnchor" type="Marker3D" parent="." unique_id=1281978555]
-transform = Transform3D(0.33971602, 0, -0.90535986, 0, 1, 0, 0.7242879, 0, 0.42464498, -98.90941, 0, 36.928917)
+transform = Transform3D(0.38218048, 0, -0.9053599, 0, 1, 0, 0.8148239, 0, 0.424645, -98.90941, 0, 36.928917)
 
 [node name="StairsAnchor" type="Marker3D" parent="." unique_id=2100032276]
 transform = Transform3D(0.4816772, 0, -0.7256061, 0, 1, 0, 0.50792426, 0, 0.6881103, -61.96194, 0.15524817, 73.28761)
-
-[node name="StairsAnchor2" type="Marker3D" parent="." unique_id=1591116188]
-transform = Transform3D(0.66855085, 0, -0.7436664, 0, 1, 0, 0.7436664, 0, 0.66855085, -92, 0, 56)
 
 [node name="CutAnchor" type="Marker3D" parent="." unique_id=1158019656]
 transform = Transform3D(0.5838, 0, 0.8121, 0, 1, 0, -0.8121, 0, 0.5838, -78.8, 0, 78.15)
@@ -65,17 +65,14 @@ transform = Transform3D(0.5838, 0, 0.8121, 0, 1, 0, -0.8121, 0, 0.5838, -78.8, 0
 [node name="GateAnchor" type="Marker3D" parent="." unique_id=1814765923]
 transform = Transform3D(0.69165355, 0, -0.7222294, 0, 1, 0, 0.7222294, 0, 0.69165355, -61.68828, 0, 73.00574)
 
-[node name="RoadPlazaAnchor" type="Marker3D" parent="." unique_id=943029427]
-transform = Transform3D(-0.37044042, 0, 0.7079839, 0, 1, 0, -0.4719893, 0, -0.5556605, -74.7522, 0, 83.67041)
-
 [node name="ComplexRoadAnchor" type="Marker3D" parent="." unique_id=182026669]
-transform = Transform3D(0.49654204, 0, -0.91037464, 0, 1, 0, 1.0924497, 0, 0.413785, -108.529724, 0, 34.658325)
+transform = Transform3D(0.49654204, 0, -0.91037464, 0, 1, 0, 1.0924497, 0, 0.413785, -106.84282, 0, 37.744843)
 
 [node name="SportsComplexAnchor" type="Marker3D" parent="." unique_id=1623795754]
 transform = Transform3D(0.77614987, 0, -0.6304561, 0, 1, 0, 0.6304561, 0, 0.77614987, -58.46927, 0, 91.04616)
 
 [node name="ToiletAnchor" type="Marker3D" parent="." unique_id=171125489]
-transform = Transform3D(2.6328356, 0, 0.9587435, 0, 1, 0, -1.4381154, 0, 1.7552238, -78.148605, -0.087310314, 83.23729)
+transform = Transform3D(2.5052114, 0, 1.1002858, 0, 0.99999994, 0, -1.6504285, 0, 1.670141, -77.64438, 0.07580471, 73.491615)
 
 [node name="WelcomeArchAnchor" type="Marker3D" parent="." unique_id=745052625]
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -104, 0, 8)
@@ -114,3 +111,32 @@ text = "WASD move · mouse look · Shift run · Space jump · F kick the ball ·
 [node name="CSGBox3D" type="CSGBox3D" parent="." unique_id=108145941]
 transform = Transform3D(0.7684396, 0, -0.6399223, 0, 1, 0, 0.6399223, 0, 0.7684396, -68.137344, 1.0523815, 66.98622)
 size = Vector3(11.882, 2.302, 0.2)
+
+[node name="Dirtslope" parent="." unique_id=1225895587 instance=ExtResource("4_mvwal")]
+transform = Transform3D(-7.766299, 0, 6.2995725, 0, 9.999998, 0, -6.2995725, 0, -7.766299, -77.60287, -4.5687084, 72.84274)
+
+[node name="CSGBox3D2" type="CSGBox3D" parent="." unique_id=1738421084]
+transform = Transform3D(0.86380416, 0, 0.50382787, 0, 1, 0, -0.50382787, 0, 0.86380416, -76.26306, -2.3019052, 68.36951)
+size = Vector3(19.347519, 5.43486, 2.845169)
+
+[node name="Dirtslope2" parent="." unique_id=1757207082 instance=ExtResource("4_mvwal")]
+transform = Transform3D(-13.232885, 0, 8.993928, 0, 16, 0, -8.993928, 0, -13.232885, -146.29974, -8.416459, 55.14493)
+
+[node name="Dirtslope5" parent="." unique_id=463410521 instance=ExtResource("4_mvwal")]
+transform = Transform3D(-13.797358, 0, 8.101415, 0, 16, 0, -8.101415, 0, -13.797358, -156.49615, -8.719325, 48.15377)
+
+[node name="Dirtslope3" parent="." unique_id=974601868 instance=ExtResource("4_mvwal")]
+transform = Transform3D(-11.942385, 0, 10.647978, 0, 16, 0, -10.647978, 0, -11.942385, -117.65492, -8.12937, 78.824524)
+
+[node name="Dirtslope4" parent="." unique_id=1690480025 instance=ExtResource("4_mvwal")]
+transform = Transform3D(-11.942385, 0, 10.647978, 0, 16, 0, -10.647978, 0, -11.942385, -130.40056, -8.12937, 66.97863)
+
+[node name="SoccerField" parent="." unique_id=1880571859 instance=ExtResource("5_nhq4h")]
+transform = Transform3D(5.05627, 0, 3.187873, 0, 1, 0, -3.923536, 0, 4.108219, -12.835434, 0.009346962, 15.710817)
+
+[node name="Playground" parent="." unique_id=2086564330 instance=ExtResource("6_eiq4b")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -56.516838, 0.04000473, 37.81079)
+visible = false
+
+[node name="BasketballGround" parent="." unique_id=865052861 instance=ExtResource("5_nhq4h")]
+transform = Transform3D(1.1559516, 0, 0.64054346, 0, 1, 0, -0.5947903, 0, 1.2448711, -71.7054, 0.09860945, 35.959137)

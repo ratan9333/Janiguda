@@ -53,6 +53,14 @@ extends Node3D
 	set(v): gallery_length_m = v; _request_rebuild()
 @export_range(1, 40) var gallery_rows: int = 15:
 	set(v): gallery_rows = v; _request_rebuild()
+## Goal frame size as a multiple of regulation (7.32 x 2.44 m). 1.0 is a real
+## football goal; the pitch here is oversized, so a larger frame reads better.
+@export_range(1.0, 4.0) var goal_scale: float = 1.6:
+	set(v): goal_scale = v; _request_rebuild()
+## Basketball hoop size as a multiple of regulation (0.45 m ring at 3.05 m).
+## Scales the ring, backboard and pole together - note this raises the ring too.
+@export_range(1.0, 4.0) var hoop_scale: float = 1.6:
+	set(v): hoop_scale = v; _request_rebuild()
 
 ## A rectangular bite taken out of the raised compound, positioned by dragging
 ## CutAnchor in the viewport (rotate it too - the rectangle follows its yaw).
@@ -75,6 +83,16 @@ const GROUND_MAT := preload("res://materials/ground_base.tres")
 const GRASS_MAT := preload("res://materials/grass_green.tres")
 const ROAD_MAT := preload("res://materials/road_surface.tres")
 const GATE_MAT := preload("res://materials/gate_metal.tres")
+const PITCH_MAT := preload("res://materials/soccer_pitch.tres")
+const BBALL_MAT := preload("res://materials/basketball_court.tres")
+
+## Imported ground models to skin, node name -> material. Applied from here
+## rather than as a material_override saved in the scene, because the editor
+## rewrites the whole .tscn on save and drops overrides on instanced children.
+const GROUND_SKINS := {
+	"SoccerField": PITCH_MAT,
+	"BasketballGround": BBALL_MAT,
+}
 
 ## Elevation controls, live in the Inspector. The compound (all your placed
 ## pieces) stays at y=0; the outer world sits elevation_m BELOW it. embankment_run
@@ -99,15 +117,79 @@ var _root: Node3D
 
 
 func _ready() -> void:
+	# Skinning runs either way: the ground models are instanced scenes, so baking
+	# does not claim them and they would otherwise stay untextured.
+	_skin_grounds()
+	# Deferred, and from the scene root, so it settles after every child has had
+	# its say - see _claim_viewport().
+	_claim_viewport.call_deferred()
 	if bake_for_editing:
 		return          # keep the baked nodes that were saved with the scene
 	_rebuild()
+
+
+## Put the pitch / court shaders on the imported ground models, sizing each one
+## from what it actually measures in the world. Doing it here means rescaling or
+## rotating the node keeps the markings correct, and an editor save can no
+## longer lose the assignment.
+func _skin_grounds() -> void:
+	for node_name in GROUND_SKINS:
+		var node := get_node_or_null(NodePath(node_name)) as Node3D
+		if node == null:
+			continue
+		for mesh in _mesh_children(node):
+			if mesh.mesh == null:
+				continue
+			var material: ShaderMaterial = GROUND_SKINS[node_name].duplicate()
+			var size := mesh.mesh.get_aabb().size
+			var basis := mesh.global_transform.basis
+			material.set_shader_parameter("plane_size_m", Vector2(
+				(basis * Vector3(size.x, 0, 0)).length(),
+				(basis * Vector3(0, 0, size.z)).length()))
+			mesh.material_override = material
+
+
+## Hand the viewport to the real Player and stand down any stowaway ones.
+##
+## Scenes instanced alongside this one - Playground, CharacterTest - each ship a
+## complete Player: a Camera3D flagged `current`, plus a controller reading the
+## same WASD actions. Setting `visible = false` on them is not enough, because a
+## hidden Camera3D still claims the viewport on entering the tree and a hidden
+## controller still runs. The symptom is a world that renders while the view sits
+## parked on a character you cannot see, and phantom input going to it.
+##
+## Whichever camera enters last would otherwise win, so this runs deferred from
+## the scene root: _ready() fires bottom-up, meaning the root queues after every
+## child, and the deferred queue is FIFO.
+func _claim_viewport() -> void:
+	var player := get_node_or_null("Player") as Node3D
+	if player == null:
+		return
+	for child in get_children():
+		if child == player or not (child is Node3D):
+			continue
+		# A sibling carrying a camera rig is a stowaway player, not scenery.
+		if child.find_child("CameraPivot", true, false) != null:
+			child.process_mode = Node.PROCESS_MODE_DISABLED
+	var camera := player.find_child("Camera3D", true, false) as Camera3D
+	if camera:
+		camera.make_current()
+
+
+func _mesh_children(node: Node) -> Array[MeshInstance3D]:
+	var found: Array[MeshInstance3D] = []
+	if node is MeshInstance3D:
+		found.append(node)
+	for child in node.get_children():
+		found.append_array(_mesh_children(child))
+	return found
 
 
 func _request_rebuild() -> void:
 	if bake_for_editing:
 		return          # baked: regenerating here would wipe hand edits
 	if is_inside_tree():
+		_skin_grounds()
 		_rebuild()
 
 
@@ -416,9 +498,17 @@ func _build_field(anchor: Node) -> void:
 	for side in [-1.0, 1.0]:
 		var sign := float(side)
 		var z := sign * hz
-		_slab("GoalPostL", Vector3(0.12, 2.44, 0.12), Vector3(-3.66, 1.22, z), LINE_MAT, anchor)
-		_slab("GoalPostR", Vector3(0.12, 2.44, 0.12), Vector3(3.66, 1.22, z), LINE_MAT, anchor)
-		_slab("GoalBar", Vector3(7.32, 0.12, 0.12), Vector3(0, 2.44, z), LINE_MAT, anchor)
+		# Regulation is 7.32 x 2.44 m; goal_scale multiplies that, posts included,
+		# so the frame keeps its proportions as it grows.
+		var goal_w := 7.32 * goal_scale
+		var goal_h := 2.44 * goal_scale
+		var post := 0.12 * goal_scale
+		_slab("GoalPostL", Vector3(post, goal_h, post), Vector3(-goal_w * 0.5, goal_h * 0.5, z), LINE_MAT, anchor)
+		_slab("GoalPostR", Vector3(post, goal_h, post), Vector3(goal_w * 0.5, goal_h * 0.5, z), LINE_MAT, anchor)
+		# Bar runs post thickness wider so it closes the corners instead of
+		# stopping at the post centres, and sits ON the posts rather than being
+		# centred on them - goal height is measured to the crossbar's underside.
+		_slab("GoalBar", Vector3(goal_w + post, post, post), Vector3(0, goal_h + post * 0.5, z), LINE_MAT, anchor)
 	# Floodlight poles at the field corners.
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
@@ -468,13 +558,6 @@ func _build_complex_road(anchor: Node) -> void:
 	_slab("RoadEarth", Vector3(length, earth_h, width), Vector3(0, (road_top + OUTER_LEVEL) * 0.5, 0), FIELD_MAT, anchor)
 	# Road surface on top, a little narrower so earth shows at the verges.
 	_slab("ComplexRoad", Vector3(length, 0.16, width - 1.5), Vector3(0, road_top, 0), ROAD_MAT, anchor)
-	# Trees beside the road (both verges), at road level.
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 21
-	for zside in [-1.0, 1.0]:
-		for i in range(6):
-			var x := -length * 0.5 + (i + 0.5) * length / 6.0
-			_eucalyptus(anchor, Vector3(x, road_top, float(zside) * (width * 0.5 + 1.8)), rng.randf_range(8.0, 12.0))
 
 
 ## Two-storey indoor sports centre, hollow and walk-in (rear faces the stadium,
@@ -653,11 +736,33 @@ func _build_court(anchor: Node) -> void:
 	_court_line(anchor, Vector3(-7.5, 0, -15), Vector3(-7.5, 0, 15))
 	_court_line(anchor, Vector3(7.5, 0, -15), Vector3(7.5, 0, 15))
 	_court_line(anchor, Vector3(-7.5, 0, 0), Vector3(7.5, 0, 0))
+	# Hoops. Regulation is a 0.45 m rim at 3.05 m; hoop_scale multiplies the whole
+	# assembly, so pole, backboard and rim keep their proportions.
+	var rim_r := 0.225 * hoop_scale
+	var board_w := 1.8 * hoop_scale
+	var board_h := 1.05 * hoop_scale
+	var board_t := 0.1 * hoop_scale
+	var rim_y := 3.05 * hoop_scale
+	var pole_t := 0.2 * hoop_scale
 	for side in [-1.0, 1.0]:
 		var sign := float(side)
 		var z := sign * 14.0
-		_slab("HoopPole", Vector3(0.2, 3.05, 0.2), Vector3(0, 1.52, z), POLE_MAT, anchor)
-		_slab("Backboard", Vector3(1.8, 1.05, 0.1), Vector3(0, 3.05, z - sign * 0.3), POLE_MAT, anchor)
+		_slab("HoopPole", Vector3(pole_t, rim_y, pole_t), Vector3(0, rim_y * 0.5, z), POLE_MAT, anchor)
+		var board_z := z - sign * 0.3 * hoop_scale
+		_slab("Backboard", Vector3(board_w, board_h, board_t), Vector3(0, rim_y + board_h * 0.35, board_z), POLE_MAT, anchor)
+		# The ring itself, hung off the face of the board at rim height.
+		var rim := MeshInstance3D.new()
+		rim.name = "HoopRing"
+		var torus := TorusMesh.new()
+		torus.outer_radius = rim_r
+		torus.inner_radius = rim_r - maxf(0.02, 0.02 * hoop_scale)
+		var rim_mat := StandardMaterial3D.new()
+		rim_mat.albedo_color = Color("d4541f")
+		rim_mat.roughness = 0.5
+		torus.material = rim_mat
+		rim.mesh = torus
+		rim.position = Vector3(0, rim_y, board_z - sign * (board_t * 0.5 + rim_r))
+		anchor.add_child(rim)
 
 
 ## A small old-style market complex: a row of shop units, in line, matching the

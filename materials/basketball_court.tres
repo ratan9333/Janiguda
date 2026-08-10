@@ -1,0 +1,16 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://materials/basketball_court.gdshader" id="1_court"]
+
+[resource]
+resource_name = "basketball_court"
+shader = ExtResource("1_court")
+shader_parameter/plane_size_m = Vector2(14.32, 29.95)
+shader_parameter/court_fill = 0.92
+shader_parameter/line_width_m = 0.05
+shader_parameter/show_markings = 1.0
+shader_parameter/court_color = Color(0.259, 0.427, 0.337, 1)
+shader_parameter/key_color = Color(0.604, 0.302, 0.235, 1)
+shader_parameter/surround_color = Color(0.204, 0.235, 0.22, 1)
+shader_parameter/line_color = Color(0.941, 0.949, 0.937, 1)
+shader_parameter/court_roughness = 0.78
