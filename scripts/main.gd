@@ -77,11 +77,17 @@ func build_environment() -> void:
 
 
 func build_world() -> void:
-	geographic_world = Node3D.new()
-	geographic_world.name = "GeographicWorld"
-	geographic_world.set_script(GEOGRAPHIC_WORLD_SCRIPT)
-	add_child(geographic_world)
-	geographic_world.generate()
+	# JaniGudaGate.tscn is instanced in main.tscn and is the editable source of
+	# truth for the map. Only generate from code when that instance is missing.
+	geographic_world = get_node_or_null("GeographicWorld")
+	if geographic_world:
+		geographic_world.load_runtime_data()
+	else:
+		geographic_world = Node3D.new()
+		geographic_world.name = "GeographicWorld"
+		geographic_world.set_script(GEOGRAPHIC_WORLD_SCRIPT)
+		add_child(geographic_world)
+		geographic_world.generate()
 	build_geographic_gameplay()
 
 

@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Small World Prototype"
-run/main_scene="res://main.tscn"
+run/main_scene="res://world.tscn"
 config/features=PackedStringArray("4.7")
 
 [display]
@@ -22,11 +22,10 @@ window/size/window_width_override=1280
 window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/terrain_3d/plugin.cfg")
+
 [physics]
 
 3d/default_gravity=18.0
-
-[rendering]
-
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"

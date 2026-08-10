@@ -6,19 +6,54 @@ const CENTER_LAT := 18.690209
 const CENTER_LON := 82.834109
 const GRID_SPACING := 250.0
 const SOURCE_GRID_SIZE := 9
-const TERRAIN_SUBDIVISIONS := 32
+const TERRAIN_SUBDIVISIONS := 128
+# Vertical exaggeration of the real survey relief. 1.0 is true to life; the SRTM
+# data only varies ~30 m across this extent, which reads as flat at eye level.
+const TERRAIN_RELIEF_SCALE := 2.0
+# Rolling undulation layered on top of the survey data, in metres. 0.0 disables it
+# and gives back the untouched real ground.
+const TERRAIN_NOISE_HEIGHT := 8.0
+# Metres per noise feature. Smaller is choppier; must stay well above the cell
+# size (world span / TERRAIN_SUBDIVISIONS) or the mesh cannot resolve it.
+const TERRAIN_NOISE_SCALE := 45.0
+# Half-extent of the terrain in metres: the ground spans ±this on both axes, so
+# 1000.0 reaches 1 km out from the spawn point in each direction.
 const WORLD_HALF_SIZE := 1000.0
+# Distance along the primary road at which the compound gateway sits.
+const GATE_ALONG := -3.0
+# Set true to bring back every tree: the eucalyptus avenue and grove, the palm,
+# the forest edge and the scattered woodland multimeshes. Re-bake after changing.
+const BUILD_TREES := false
+# Set true to bring back all scenery: roads and markings, the gate and compound,
+# shops, houses, vehicles, signs, poles, grass and shrubs. False leaves only the
+# elevation terrain. Re-bake after changing.
+const BUILD_SCENERY := false
 
 var elevations: Array = []
+var noise: FastNoiseLite
 var base_elevation := 0.0
 var road_segments: Array[PackedVector3Array] = []
+var road_types: Array[String] = []
 var primary_road_segments: Array[PackedVector3Array] = []
 
 
-func generate() -> void:
+# Everything the runtime queries (height_at, nearest_primary_frame, latlon_to_world)
+# needs, without building any meshes. Call this when the geometry already exists as
+# an authored scene instead of being generated.
+func load_runtime_data() -> void:
 	load_elevation_data()
+	load_road_data()
+
+
+func generate() -> void:
+	load_runtime_data()
 	build_terrain()
-	build_roads()
+	# Everything past this point is scenery. load_runtime_data() still runs above,
+	# so height_at() / nearest_primary_frame() keep working for gameplay placement
+	# even with nothing built.
+	if not BUILD_SCENERY:
+		return
+	build_road_meshes()
 	build_spawn_reference_cluster()
 	build_center_roadside_settlement()
 	build_parked_vehicles()
@@ -63,7 +98,7 @@ func build_terrain() -> void:
 	terrain_mesh.surface_set_material(0, terrain_material)
 
 	var terrain := StaticBody3D.new()
-	terrain.name = "RealTerrain_2km"
+	terrain.name = "RealTerrain_%dm_radius" % int(WORLD_HALF_SIZE)
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.mesh = terrain_mesh
 	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
@@ -80,7 +115,8 @@ func build_terrain() -> void:
 func add_triangle(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3) -> void:
 	for point in [a, b, c]:
 		surface.set_color(terrain_color_at(point))
-		surface.set_uv(Vector2((point.x + WORLD_HALF_SIZE) / 2000.0, (point.z + WORLD_HALF_SIZE) / 2000.0))
+		var span := WORLD_HALF_SIZE * 2.0
+		surface.set_uv(Vector2((point.x + WORLD_HALF_SIZE) / span, (point.z + WORLD_HALF_SIZE) / span))
 		surface.add_vertex(point)
 
 
@@ -93,7 +129,10 @@ func terrain_color_at(point: Vector3) -> Color:
 	return Color("48633b").lightened(variation * 0.05)
 
 
-func build_roads() -> void:
+func load_road_data() -> void:
+	road_segments.clear()
+	road_types.clear()
+	primary_road_segments.clear()
 	var file := FileAccess.open("res://data/location_osm.json", FileAccess.READ)
 	var data = JSON.parse_string(file.get_as_text())
 	for element in data.elements:
@@ -106,10 +145,17 @@ func build_roads() -> void:
 			points.append(point)
 		if points.size() < 2:
 			continue
-		road_segments.append(points)
 		var road_type: String = element.tags.get("highway", "unclassified")
+		road_segments.append(points)
+		road_types.append(road_type)
 		if road_type == "primary":
 			primary_road_segments.append(points)
+
+
+func build_road_meshes() -> void:
+	for index in range(road_segments.size()):
+		var points: PackedVector3Array = road_segments[index]
+		var road_type: String = road_types[index]
 		var width := 6.5 if road_type == "primary" else 4.5
 		build_road_strip(points, width + 3.0, Color("9a6748"), -0.10)
 		build_road_strip(points, width, Color("5a5350"))
@@ -188,7 +234,9 @@ func make_local_root(name_text: String, along: float, across: float, direction: 
 	root.name = name_text
 	root.position = point
 	root.basis = Basis(direction, Vector3.UP, east)
-	add_child(root)
+	# force_readable_name keeps repeats as CompoundWall2/3/... instead of
+	# @StaticBody3D@17, so the baked scene stays navigable in the editor.
+	add_child(root, true)
 	return root
 
 
@@ -275,50 +323,133 @@ func build_satellite_dish(position: Vector3) -> void:
 	add_child(root)
 
 
+func build_iron_gate(name_text: String, along: float, width: float, bars: int, direction: Vector3, east: Vector3, iron: Color) -> void:
+	# Two leaves of thin welded bar, sized to just fill the gap between its pillars.
+	var gate := make_local_root(name_text, along, -8.55, direction, east)
+	var half := width * 0.5
+	for leaf: float in [-1.0, 1.0]:
+		var centre := leaf * half * 0.5
+		for bar in range(bars):
+			var x := centre + (-half * 0.5 + 0.14) + bar * ((half - 0.28) / maxf(bars - 1, 1))
+			add_local_box(gate, Vector3(0.07, 1.95, 0.07), Vector3(x, 1.08, 0), iron)
+		for rail_y in [0.22, 1.16, 2.06]:
+			add_local_box(gate, Vector3(half - 0.06, 0.08, 0.08), Vector3(centre, rail_y, 0), iron)
+		add_local_box(gate, Vector3(0.10, 1.95, 0.10), Vector3(centre - half * 0.5, 1.08, 0), iron)
+		add_local_box(gate, Vector3(0.10, 1.95, 0.10), Vector3(centre + half * 0.5, 1.08, 0), iron)
+		var brace := add_local_box(gate, Vector3(half * 0.95, 0.07, 0.07), Vector3(centre, 1.10, -0.03), iron)
+		brace.rotation.z = 0.62 * leaf
+
+
+func build_gate_avenue(direction: Vector3, east: Vector3) -> void:
+	# The lane beyond the gateway is lined with eucalyptus on both sides.
+	var avenue: Array[Vector3] = []
+	for side in [-1.0, 1.0]:
+		for step in range(11):
+			var along: float = GATE_ALONG + side * (4.9 + float(step % 2) * 0.6)
+			var frame := nearest_primary_frame(direction * along)
+			var depth := 11.0 + step * 5.8
+			var tree_position: Vector3 = frame.point - east * depth
+			tree_position.y = height_at(tree_position.x, tree_position.z)
+			avenue.append(tree_position)
+	build_eucalyptus_grove(avenue)
+
+
 func build_spawn_compound(direction: Vector3, east: Vector3) -> void:
-	# Weathered west-side wall and the four ochre gateposts frame a red-earth lane.
-	for along in [-37.0, -29.0, -21.0, 13.0, 22.0, 31.0, 40.0]:
-		var wall := make_local_root("CompoundWall", along, -8.2, direction, east)
-		add_local_box(wall, Vector3(8.8, 2.35, 0.42), Vector3(0, 1.175, 0), Color("9a8275"), true)
-		add_local_box(wall, Vector3(8.8, 0.15, 0.55), Vector3(0, 2.38, 0), Color("6e625b"))
-	for along in [-14.5, -9.5, 3.0, 8.0]:
+	# Weathered maroon west-side wall, broken only by a narrow ochre-posted gateway
+	# and a pedestrian gap further along, exactly as in the Street View references.
+	var wall_body := Color("7c4c44")
+	var wall_coping := Color("5b3f39")
+	var pillar_body := Color("bd6740")
+	var pillar_cap := Color("d09877")
+	var iron := Color("3f342c")
+	# [centre along the road, length]; the gaps left between runs are the gateways.
+	for segment in [[-38.0, 10.0], [-28.0, 10.0], [-18.4, 9.2], [-9.9, 7.8], [4.5, 9.0], [17.5, 9.0], [26.5, 9.0], [34.0, 6.0]]:
+		var centre: float = segment[0]
+		var length: float = segment[1]
+		var wall := make_local_root("CompoundWall", centre, -8.2, direction, east)
+		add_local_box(wall, Vector3(length, 2.30, 0.42), Vector3(0, 1.15, 0), wall_body, true)
+		add_local_box(wall, Vector3(length, 0.16, 0.54), Vector3(0, 2.34, 0), wall_coping)
+		# Shallow pilasters break the run up the way the plastered original does.
+		for pilaster in range(int(length / 4.4)):
+			var offset := -length * 0.5 + 2.2 + pilaster * 4.4
+			add_local_box(wall, Vector3(0.34, 2.30, 0.52), Vector3(offset, 1.15, 0), wall_body.darkened(0.12))
+	for along in [GATE_ALONG - 2.5, GATE_ALONG + 2.5, 9.5, 12.5]:
 		var pillar := make_local_root("OchreGatePillar", along, -8.35, direction, east)
-		add_local_box(pillar, Vector3(1.0, 3.25, 1.0), Vector3(0, 1.625, 0), Color("b65c3c"), true)
-		add_local_box(pillar, Vector3(1.28, 0.24, 1.28), Vector3(0, 3.32, 0), Color("d7b09a"))
-	var gate := make_local_root("IronCompoundGate", -3.2, -8.55, direction, east)
-	for bar in range(11):
-		add_local_box(gate, Vector3(0.08, 2.1, 0.08), Vector3(-5.4 + bar * 1.08, 1.15, 0), Color("51463e"))
-	add_local_box(gate, Vector3(11.0, 0.10, 0.10), Vector3(0, 0.25, 0), Color("51463e"))
-	add_local_box(gate, Vector3(11.0, 0.10, 0.10), Vector3(0, 2.20, 0), Color("51463e"))
-	# Small diagonal braces give the gate the hand-welded look in the reference.
-	for brace_x in [-3.8, 0.0, 3.8]:
-		var brace := add_local_box(gate, Vector3(2.8, 0.08, 0.08), Vector3(brace_x, 1.2, -0.02), Color("51463e"))
-		brace.rotation.z = 0.52
-	var lane_start: Vector3 = nearest_primary_frame(Vector3.ZERO).point - east * 5.0
-	build_ground_strip(lane_start, lane_start - east * 72.0, 11.0, Color("8d5237"), 0.22)
-	# Painted Odia-style signboards, drain edge and a partly collapsed foreground wall.
-	var sign_root := make_local_root("CompoundSignboards", -18.5, -8.55, direction, east, false)
-	add_local_box(sign_root, Vector3(5.2, 1.7, 0.16), Vector3(0, 1.45, -0.22), Color("3e5147"))
-	add_local_box(sign_root, Vector3(3.4, 0.9, 0.14), Vector3(1.0, 0.20, -0.25), Color("39704c"))
-	var sign_world := sign_root.global_position - east * 0.38 + Vector3.UP * 1.5
+		add_local_box(pillar, Vector3(1.0, 2.95, 1.0), Vector3(0, 1.475, 0), pillar_body, true)
+		add_local_box(pillar, Vector3(1.22, 0.20, 1.22), Vector3(0, 3.05, 0), pillar_cap)
+		# Stepped-then-tapered top reads as the little arched cap on the originals.
+		add_local_box(pillar, Vector3(0.86, 0.34, 0.86), Vector3(0, 3.32, 0), pillar_body)
+		add_local_box(pillar, Vector3(0.54, 0.26, 0.62), Vector3(0, 3.62, 0), pillar_cap)
+	build_iron_gate("IronCompoundGate", GATE_ALONG, 4.0, 5, direction, east, iron)
+	build_iron_gate("IronPedestrianGate", 11.0, 2.0, 3, direction, east, iron)
+	# The lane runs in through the gateway, not off the origin.
+	var lane_start: Vector3 = nearest_primary_frame(direction * GATE_ALONG).point - east * 5.0
+	build_ground_strip(lane_start, lane_start - east * 72.0, 7.0, Color("8d5237"), 0.22)
+	build_gate_avenue(direction, east)
+	# Painted Odia signboard, mounted on the road-facing side of the wall next to
+	# the gateway. On this west-side frontage +Z is the side that faces the road.
+	var sign_root := make_local_root("CompoundSignboards", -8.2, -8.55, direction, east, false)
+	add_local_box(sign_root, Vector3(3.1, 1.35, 0.14), Vector3(0, 1.55, 0.22), Color("4a7b46"))
+	add_local_box(sign_root, Vector3(3.1, 0.10, 0.17), Vector3(0, 2.28, 0.23), Color("d8c246"))
+	add_local_box(sign_root, Vector3(1.9, 0.72, 0.12), Vector3(-0.5, 0.62, 0.25), Color("39704c"))
+	var sign_world := sign_root.global_position + east * 0.38 + Vector3.UP * 1.5
 	add_label("ଜଙ୍ଗଲ ପ୍ରବେଶ • JANIGUDA", sign_world, Color("eee0a9"), 21)
+	# Crenellated stub of a collapsed enclosure, mossy along its broken top edge.
 	var broken := make_local_root("BrokenForegroundWall", 36.0, -5.9, direction, east)
-	add_local_box(broken, Vector3(7.5, 1.65, 0.55), Vector3(0, 0.825, 0), Color("907867"), true)
-	add_local_box(broken, Vector3(2.2, 0.9, 0.62), Vector3(-4.5, 0.45, 0), Color("7c6a5c"), true)
+	for index in range(7):
+		var stub_height: float = [1.62, 1.10, 1.48, 0.86, 1.36, 1.02, 1.20][index]
+		var x := -3.25 + index * 1.08
+		add_local_box(broken, Vector3(1.06, stub_height, 0.58), Vector3(x, stub_height * 0.5, 0), Color("b08a63").darkened(float(index % 3) * 0.06), true)
+		add_local_box(broken, Vector3(1.06, 0.09, 0.62), Vector3(x, stub_height + 0.045, 0), Color("8a8f5a"))
+	add_local_box(broken, Vector3(0.52, 0.95, 3.1), Vector3(-3.6, 0.475, 1.45), Color("a8815c"), true)
+	add_local_box(broken, Vector3(0.52, 0.09, 3.1), Vector3(-3.6, 0.99, 1.45), Color("8a8f5a"))
 	for rubbish_index in range(18):
 		var litter := make_local_root("RoadsideLeafLitter", -26.0 + rubbish_index * 3.5, -5.5 - float(rubbish_index % 3), direction, east, false)
 		add_local_box(litter, Vector3(0.16 + (rubbish_index % 2) * 0.14, 0.05, 0.22), Vector3(0, 0.04, 0), [Color("d8cfb0"), Color("538758"), Color("c26a4b")][rubbish_index % 3])
 
-	# Lime-green roadside room and dense eucalyptus grove beyond the gate.
-	var hut := make_local_root("LimeGreenRoadHut", 48.0, -9.2, direction, east)
-	add_local_box(hut, Vector3(7.2, 3.2, 5.2), Vector3(0, 1.6, 0), Color("8fcf35"), true)
-	add_local_box(hut, Vector3(7.7, 0.22, 5.7), Vector3(0, 3.31, 0), Color("78a92e"))
-	add_local_box(hut, Vector3(1.4, 2.25, 0.12), Vector3(0, 1.12, -2.66), Color("24241e"))
-	add_local_box(hut, Vector3(7.8, 0.18, 1.25), Vector3(0, 2.68, -3.1), Color("75a92c"))
+	# Roofless ruin standing immediately beside the lime-green room.
+	var ruin := make_local_root("RuinedRoadsideBuilding", 42.0, -8.9, direction, east)
+	var ruin_plaster := Color("b0855f")
+	var ruin_moss := Color("8a8f5a")
+	# Road-facing elevation, broken down to an uneven crenellated stub.
+	for index in range(6):
+		var stub_height: float = [1.85, 1.15, 1.70, 0.95, 1.55, 1.25][index]
+		var x := -3.6 + index * 1.45
+		add_local_box(ruin, Vector3(1.42, stub_height, 0.46), Vector3(x, stub_height * 0.5, 2.4), ruin_plaster.darkened(float(index % 3) * 0.05), true)
+		add_local_box(ruin, Vector3(1.42, 0.10, 0.50), Vector3(x, stub_height + 0.05, 2.4), ruin_moss)
+	# Two side walls and a taller surviving back wall.
+	for side in [-1.0, 1.0]:
+		add_local_box(ruin, Vector3(0.44, 1.45, 4.6), Vector3(side * 3.9, 0.725, 0.1), ruin_plaster, true)
+		add_local_box(ruin, Vector3(0.48, 0.10, 4.6), Vector3(side * 3.9, 1.50, 0.1), ruin_moss)
+	add_local_box(ruin, Vector3(8.2, 2.55, 0.44), Vector3(0, 1.275, -2.15), ruin_plaster.darkened(0.08), true)
+	add_local_box(ruin, Vector3(8.3, 0.12, 0.50), Vector3(0, 2.58, -2.15), ruin_moss)
+	# Collapsed rubble spilling out of the open front.
+	for rubble in range(7):
+		add_local_box(ruin, Vector3(0.55 + float(rubble % 3) * 0.22, 0.26, 0.48), Vector3(-3.0 + rubble * 1.05, 0.13, 3.05 + float(rubble % 2) * 0.4), ruin_plaster.darkened(0.18), false)
+
+	# Lime-green roadside room: bright body, yellow plinth and a columned veranda.
+	var hut := make_local_root("LimeGreenRoadHut", 50.0, -9.2, direction, east)
+	add_local_box(hut, Vector3(7.2, 3.0, 5.2), Vector3(0, 1.6, 0), Color("a4dc28"), true)
+	add_local_box(hut, Vector3(7.2, 0.75, 5.24), Vector3(0, 0.375, 0), Color("d3e04c"))
+	add_local_box(hut, Vector3(7.7, 0.30, 5.7), Vector3(0, 3.25, 0), Color("8fbf2f"))
+	add_local_box(hut, Vector3(7.7, 0.34, 0.24), Vector3(0, 3.57, 2.73), Color("a4dc28"))
+	add_local_box(hut, Vector3(1.25, 2.15, 0.14), Vector3(1.6, 1.07, 2.67), Color("1e1f18"))
+	add_local_box(hut, Vector3(1.05, 1.20, 0.12), Vector3(-1.9, 1.55, 2.67), Color("2d3a1c"))
+	# Veranda: slab carried on four square posts, with posters pasted at eye height.
+	add_local_box(hut, Vector3(7.7, 0.22, 1.55), Vector3(0, 3.05, 3.35), Color("8fbf2f"))
+	for post in range(4):
+		add_local_box(hut, Vector3(0.42, 2.94, 0.42), Vector3(-2.9 + post * 1.95, 1.47, 3.9), Color("a4dc28"), true)
+	add_local_box(hut, Vector3(0.62, 0.86, 0.06), Vector3(-0.5, 1.15, 2.62), Color("c8443c"))
+	add_local_box(hut, Vector3(0.58, 0.80, 0.06), Vector3(0.35, 1.12, 2.62), Color("3f6bab"))
+	add_local_box(hut, Vector3(7.4, 0.30, 1.1), Vector3(0, 0.15, 3.6), Color("9a9084"), true)
+
 	var grove: Array[Vector3] = []
 	for row in range(5):
 		for column in range(13):
 			var along := -55.0 + column * 9.5 + sin(row * 4.1 + column) * 2.0
+			# Leave the lane through the gateway clear of grove trees.
+			if absf(along - GATE_ALONG) < 5.5:
+				continue
 			var frame := nearest_primary_frame(direction * along)
 			var tree_position: Vector3 = frame.point - east * (18.0 + row * 10.5 + cos(column * 2.3) * 2.5)
 			tree_position.y = height_at(tree_position.x, tree_position.z)
@@ -327,6 +458,8 @@ func build_spawn_compound(direction: Vector3, east: Vector3) -> void:
 
 
 func build_eucalyptus_grove(positions: Array[Vector3]) -> void:
+	if not BUILD_TREES:
+		return
 	for index in range(positions.size()):
 		var root := Node3D.new()
 		root.position = positions[index]
@@ -369,6 +502,8 @@ func build_spawn_street_furniture(direction: Vector3, east: Vector3) -> void:
 
 
 func build_palm_tree(position: Vector3) -> void:
+	if not BUILD_TREES:
+		return
 	position.y = surface_height_at(position.x, position.z)
 	var root := Node3D.new()
 	root.position = position
@@ -793,6 +928,8 @@ func build_ground_strip(start: Vector3, finish: Vector3, width: float, color: Co
 
 
 func build_vegetation() -> void:
+	if not BUILD_TREES:
+		return
 	var random := RandomNumberGenerator.new()
 	random.seed = 834109
 	var forest_positions: Array[Vector3] = []
@@ -818,6 +955,8 @@ func build_vegetation() -> void:
 
 
 func build_tree_multimesh(positions: Array[Vector3], crown_color: Color, base_scale: float) -> void:
+	if not BUILD_TREES:
+		return
 	var trunk_mesh := CylinderMesh.new()
 	trunk_mesh.top_radius = 0.22
 	trunk_mesh.bottom_radius = 0.3
@@ -1006,11 +1145,27 @@ func height_at(x: float, z: float) -> float:
 	var b := float(elevations[z0 * SOURCE_GRID_SIZE + x1])
 	var c := float(elevations[z1 * SOURCE_GRID_SIZE + x0])
 	var d := float(elevations[z1 * SOURCE_GRID_SIZE + x1])
-	return lerpf(lerpf(a, b, tx), lerpf(c, d, tx), tz) - base_elevation
+	var survey := lerpf(lerpf(a, b, tx), lerpf(c, d, tx), tz) - base_elevation
+	return survey * TERRAIN_RELIEF_SCALE + terrain_noise(x, z)
+
+
+# Layered simplex undulation. Everything that places geometry goes through
+# height_at(), so props and physics follow the bumps automatically.
+func terrain_noise(x: float, z: float) -> float:
+	if TERRAIN_NOISE_HEIGHT <= 0.0:
+		return 0.0
+	if noise == null:
+		noise = FastNoiseLite.new()
+		noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+		noise.seed = 834109
+		noise.frequency = 1.0 / TERRAIN_NOISE_SCALE
+		noise.fractal_octaves = 4
+		noise.fractal_gain = 0.45
+	return noise.get_noise_2d(x, z) * TERRAIN_NOISE_HEIGHT
 
 
 func surface_height_at(x: float, z: float) -> float:
-	# Match the exact two triangles generated for each 62.5 m terrain cell.
+	# Match the exact two triangles generated for each terrain cell.
 	# This is used for physics spawns so bodies never begin below a one-sided face.
 	var step := WORLD_HALF_SIZE * 2.0 / TERRAIN_SUBDIVISIONS
 	var column := clampi(int(floor((x + WORLD_HALF_SIZE) / step)), 0, TERRAIN_SUBDIVISIONS - 1)

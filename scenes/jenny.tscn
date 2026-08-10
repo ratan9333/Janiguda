@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://e35wl3aol1gd"]
+
+[node name="Node3D" type="Node3D" unique_id=600337198]
+
+[node name="CSGBox3D" type="CSGBox3D" parent="." unique_id=1748614653]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+size = Vector3(8.595154, 9.463684, 1)
+
+[node name="PlayerSpawn" type="Marker3D" parent="CSGBox3D" unique_id=1602936053]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 8)
