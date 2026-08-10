@@ -49,6 +49,9 @@ transform = Transform3D(0.6270458, 0, -0.7790503, 0, 1, 0, 0.7790503, 0, 0.62704
 [node name="MarketAnchor" type="Marker3D" parent="."]
 transform = Transform3D(-0.7679221, 0, -0.6405701, 0, 1, 0, 0.6405701, 0, -0.7679221, -73, 0, -43)
 
+[node name="MarketCurvedAnchor" type="Marker3D" parent="."]
+transform = Transform3D(0.566, 0, -0.825, 0, 1, 0, 0.825, 0, 0.566, -95, 0, 47)
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=313712687]
 environment = SubResource("Env")
 

@@ -83,6 +83,7 @@ func _rebuild() -> void:
 	_populate("CourtAnchor", _build_court)
 	_populate("HockeyAnchor", _build_hockey)
 	_populate("MarketAnchor", _build_market)
+	_populate("MarketCurvedAnchor", _build_market)
 
 
 ## Clear an anchor's old geometry and rebuild it there. Geometry is a child of
@@ -163,10 +164,14 @@ func build_boundary_wall() -> void:
 	var panel_w := 3.0
 	var wall_h := 2.2
 	var thick := 0.3
-	# Gate centres as compass angles from the ground centre (atan2(z, x)):
-	# E = 0, S = 90, W = 180, N = -90, SW = 135. Half-width in degrees.
-	var gates := [135.0, 180.0, 0.0]
-	var gate_half := 8.0
+	# Zones (compass angle from centre, half-width in degrees) where NO wall is
+	# built: the three gates, plus wherever a market complex sits (the market
+	# replaces the wall there). E = 0, S = 90, W = 180, N = -90, SW = 135.
+	var skip := [[135.0, 8.0], [180.0, 8.0], [0.0, 8.0]]
+	for market_name in ["MarketAnchor", "MarketCurvedAnchor"]:
+		var m := get_node_or_null(market_name)
+		if m and m is Node3D:
+			skip.append([rad_to_deg(atan2(m.position.z, m.position.x)), 14.0])
 	for i in range(pts.size() - 1):
 		var a := pts[i]; a.y = 0.0
 		var b := pts[i + 1]; b.y = 0.0
@@ -180,12 +185,12 @@ func build_boundary_wall() -> void:
 		for j in range(count):
 			var centre := a + dir * (step * (j + 0.5))
 			var ang := rad_to_deg(atan2(centre.z, centre.x))
-			var in_gate := false
-			for g in gates:
-				if absf(_angle_diff(ang, g)) < gate_half:
-					in_gate = true
+			var skip_here := false
+			for zone in skip:
+				if absf(_angle_diff(ang, zone[0])) < zone[1]:
+					skip_here = true
 					break
-			if in_gate:
+			if skip_here:
 				continue
 			_wall_panel(wall, centre, dir, step * 0.98, wall_h, thick)
 
@@ -266,8 +271,11 @@ func _build_gallery_straight(anchor: Node) -> void:
 	var rise := 0.36           # how tall each step is (m)
 	var length := gallery_length_m   # how long the stand runs, in metres
 	for i in range(rows):
-		_slab("Row%d" % i, Vector3(length, rise, depth),
-			Vector3(0, i * rise + rise * 0.5, i * depth), CONCRETE_MAT, anchor)
+		# Each step is a SOLID block from the ground up to its height, so there
+		# is no hollow void beneath the terracing - as it really is.
+		var h := (i + 1) * rise
+		_slab("Row%d" % i, Vector3(length, h, depth),
+			Vector3(0, h * 0.5, i * depth), CONCRETE_MAT, anchor)
 
 
 ## A CURVED stand: same idea, but instead of a straight line, each row is a ring
@@ -282,13 +290,14 @@ func _build_gallery_curved(anchor: Node) -> void:
 	var segments := 26
 	for r in range(rows):
 		var ring_radius := radius + r * depth
+		var h := (r + 1) * rise   # solid down to the ground, no void
 		for s in range(segments):
 			var t := float(s) / (segments - 1)
 			var angle := -arc * 0.5 + arc * t
 			# Point on the arc, shifted so the front-centre sits at the anchor.
-			var pos := Vector3(sin(angle) * ring_radius, r * rise + rise * 0.5, cos(angle) * ring_radius - radius)
+			var pos := Vector3(sin(angle) * ring_radius, h * 0.5, cos(angle) * ring_radius - radius)
 			var seg_width := ring_radius * (arc / segments) * 1.2
-			var box := _slab("Curve_%d_%d" % [r, s], Vector3(seg_width, rise, depth), pos, CONCRETE_MAT, anchor)
+			var box := _slab("Curve_%d_%d" % [r, s], Vector3(seg_width, h, depth), pos, CONCRETE_MAT, anchor)
 			box.rotation.y = -angle  # turn each box to follow the curve
 
 
@@ -324,10 +333,11 @@ func _build_market(anchor: Node) -> void:
 		var awning := StandardMaterial3D.new()
 		awning.albedo_color = [Color("9c4b3b"), Color("3f6f7a"), Color("caa63f"), Color("6a7b52")][i % 4]
 		awning.roughness = 0.9
-		var front := _slab("Front%d" % i, Vector3(unit_w * 0.94, 1.4, 0.2), Vector3(x, 1.1, -2.6), CONCRETE_MAT, anchor)
+		# Shopfronts face +Z (the outer-road side), away from the stadium.
+		var front := _slab("Front%d" % i, Vector3(unit_w * 0.94, 1.4, 0.2), Vector3(x, 1.1, 2.6), CONCRETE_MAT, anchor)
 		front.get_child(0).material_override = awning
 		# Little awning ledge above the shopfront.
-		_slab("Ledge%d" % i, Vector3(unit_w * 0.94, 0.18, 1.1), Vector3(x, 2.5, -3.0), CONCRETE_MAT, anchor)
+		_slab("Ledge%d" % i, Vector3(unit_w * 0.94, 0.18, 1.1), Vector3(x, 2.5, 3.0), CONCRETE_MAT, anchor)
 
 
 func _build_hockey(anchor: Node) -> void:
