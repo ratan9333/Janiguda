@@ -42,6 +42,12 @@ const COURT_MAT := preload("res://materials/court_surface.tres")
 const GROUND_MAT := preload("res://materials/ground_base.tres")
 const GRASS_MAT := preload("res://materials/grass_green.tres")
 const ROAD_MAT := preload("res://materials/road_surface.tres")
+const GATE_MAT := preload("res://materials/gate_metal.tres")
+
+## The compound (all your placed pieces) stays at ground level y=0. The outside
+## world - surrounding ground and roads - sits this far BELOW, so the stadium
+## reads as elevated. A sloped embankment and entrance stairs connect the two.
+const OUTER_LEVEL := -2.6
 
 const LINE_W := 0.12
 const LINE_Y := 0.06
@@ -73,6 +79,7 @@ func _rebuild() -> void:
 	build_ground_base()
 	build_real_roads()
 	build_real_compound()
+	build_embankment()
 	build_boundary_wall()
 	build_boundary_trees()
 
@@ -84,6 +91,8 @@ func _rebuild() -> void:
 	_populate("HockeyAnchor", _build_hockey)
 	_populate("MarketAnchor", _build_market)
 	_populate("MarketCurvedAnchor", _build_market)
+	_populate("StairsAnchor", _build_stairs)
+	_populate("GateAnchor", _build_gate)
 
 
 ## Clear an anchor's old geometry and rebuild it there. Geometry is a child of
@@ -100,7 +109,8 @@ func _populate(anchor_name: String, builder: Callable) -> void:
 # --- real, fixed ---
 
 func build_ground_base() -> void:
-	_slab("GroundBase", Vector3(2600, 0.4, 2600), Vector3(0, -0.35, 0), GROUND_MAT)
+	# The outer world floor, dropped below the compound so the stadium is raised.
+	_slab("GroundBase", Vector3(2600, 0.4, 2600), Vector3(0, OUTER_LEVEL - 0.2, 0), GROUND_MAT)
 
 
 func build_real_roads() -> void:
@@ -147,10 +157,55 @@ func build_real_compound() -> void:
 	surface.generate_normals()
 	var mesh := surface.commit()
 	mesh.surface_set_material(0, FIELD_MAT)
+	# The compound is the playable floor at y=0, so it needs collision to stand on.
+	var body := StaticBody3D.new()
+	body.name = "GroundFill"
 	var instance := MeshInstance3D.new()
-	instance.name = "GroundFill"
 	instance.mesh = mesh
-	ground.add_child(instance)
+	body.add_child(instance)
+	var collider := CollisionShape3D.new()
+	var shape := ConcavePolygonShape3D.new()
+	shape.set_faces(mesh.get_faces())
+	shape.backface_collision = true
+	collider.shape = shape
+	body.add_child(collider)
+	ground.add_child(body)
+
+
+## The sloped earth bank around the compound, from the ground edge (y~0) down to
+## the lower outer world. This is what makes the stadium sit on raised ground.
+func build_embankment() -> void:
+	var pts := _compound_points()
+	if pts.size() < 3:
+		return
+	var group := _group("Embankment")
+	var run := 6.0
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in range(pts.size() - 1):
+		var a := pts[i]; a.y = 0.02
+		var b := pts[i + 1]; b.y = 0.02
+		var oa := a + Vector3(a.x, 0, a.z).normalized() * run; oa.y = OUTER_LEVEL
+		var ob := b + Vector3(b.x, 0, b.z).normalized() * run; ob.y = OUTER_LEVEL
+		for tri in [[a, b, ob], [a, ob, oa], [a, ob, b], [a, oa, ob]]:  # double-sided
+			for p in tri:
+				surface.set_uv(Vector2(p.x * 0.06, p.z * 0.06))
+				surface.add_vertex(p)
+	surface.generate_normals()
+	var mesh := surface.commit()
+	mesh.surface_set_material(0, GROUND_MAT)
+	var body := StaticBody3D.new()
+	body.name = "EmbankmentBody"
+	var instance := MeshInstance3D.new()
+	instance.mesh = mesh
+	body.add_child(instance)
+	var collider := CollisionShape3D.new()
+	var shape := ConcavePolygonShape3D.new()
+	shape.set_faces(mesh.get_faces())
+	shape.backface_collision = true
+	collider.shape = shape
+	body.add_child(collider)
+	group.add_child(body)
 
 
 ## Old-style cemented compound wall following the real brown outline: ~3 m
@@ -263,6 +318,35 @@ func _build_field(anchor: Node) -> void:
 			_slab("Lights", Vector3(2.2, 0.9, 0.5), base + Vector3(0, 15.0, 0), POLE_MAT, anchor)
 
 
+## Cemented entrance stairs, from the compound edge (y=0) down to the lower
+## outer world, descending along +Z. ~15 steps, old cement look.
+func _build_stairs(anchor: Node) -> void:
+	var steps := 15
+	var drop := -OUTER_LEVEL           # 2.6 m total drop
+	var rise := drop / steps
+	var run := 0.35
+	var width := 7.0
+	for i in range(steps):
+		var top := -i * rise
+		# Solid block from this step's top down to the bottom, so no gaps.
+		var h := top - OUTER_LEVEL
+		_slab("Step%d" % i, Vector3(width, h, run),
+			Vector3(0, (top + OUTER_LEVEL) * 0.5, i * run), CONCRETE_MAT, anchor)
+	# Low side walls flanking the flight.
+	for sx in [-1.0, 1.0]:
+		_slab("StairWall", Vector3(0.4, drop + 0.6, steps * run),
+			Vector3(float(sx) * (width * 0.5 + 0.2), OUTER_LEVEL * 0.5, steps * run * 0.5 - run * 0.5), CONCRETE_MAT, anchor)
+
+
+## Dark-green metal gate: two posts, a top bar, and two gate leaves.
+func _build_gate(anchor: Node) -> void:
+	_slab("PostL", Vector3(0.45, 3.2, 0.45), Vector3(-2.6, 1.6, 0), CONCRETE_MAT, anchor)
+	_slab("PostR", Vector3(0.45, 3.2, 0.45), Vector3(2.6, 1.6, 0), CONCRETE_MAT, anchor)
+	_slab("TopBar", Vector3(5.65, 0.35, 0.3), Vector3(0, 3.0, 0), GATE_MAT, anchor)
+	_slab("LeafL", Vector3(2.3, 2.3, 0.12), Vector3(-1.2, 1.25, 0), GATE_MAT, anchor)
+	_slab("LeafR", Vector3(2.3, 2.3, 0.12), Vector3(1.2, 1.25, 0), GATE_MAT, anchor)
+
+
 ## A STRAIGHT stand: terrace rows are boxes in a line. Each higher row steps
 ## back (+Z) and up (+Y). This is the simplest kind of stand.
 func _build_gallery_straight(anchor: Node) -> void:
@@ -373,8 +457,9 @@ func _load_osm():
 
 
 func _ll_to_world(latitude: float, longitude: float) -> Vector3:
+	# Roads sit on the lower outer world (the compound above is reached by stairs).
 	var meters_per_lon := 111320.0 * cos(deg_to_rad(OSM_CENTER_LAT))
-	return Vector3((longitude - OSM_CENTER_LON) * meters_per_lon, 0.03, -(latitude - OSM_CENTER_LAT) * 110540.0)
+	return Vector3((longitude - OSM_CENTER_LON) * meters_per_lon, OUTER_LEVEL + 0.06, -(latitude - OSM_CENTER_LAT) * 110540.0)
 
 
 func _road_strip(parent: Node, points: PackedVector3Array, width: float) -> void:

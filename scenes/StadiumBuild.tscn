@@ -38,19 +38,25 @@ transform = Transform3D(0.7860214, -1.7076349e-09, 0.6182848, 1.2765136e-09, 1, 
 transform = Transform3D(-0.7679221, 0, -0.6405701, 0, 1, 0, 0.6405701, 0, -0.7679221, -58.657555, 0, -34.11808)
 
 [node name="GalleryCurvedAnchor" type="Marker3D" parent="." unique_id=2079728438]
-transform = Transform3D(0.7488301, 0, -1.0912284, 0, 1, 0, 1.6368424, 0, 0.4992202, -81.97454, -1.5258789e-05, 40.555794)
+transform = Transform3D(0.7488301, 0, -1.0912284, 0, 1, 0, 1.6368424, 0, 0.4992202, -84.51304, -1.5258789e-05, 31.094086)
 
 [node name="CourtAnchor" type="Marker3D" parent="." unique_id=1498507797]
-transform = Transform3D(0.89575195, 0, 0.44467318, 0, 1, 0, -0.44467318, 0, 0.89575195, -71.01142, 1.5258789e-05, 37.755108)
+transform = Transform3D(0.89038634, 0, 0.45532158, 0, 1, 0, -0.45532158, 0, 0.89038634, -71.70374, 1.5258789e-05, 35.90891)
 
 [node name="HockeyAnchor" type="Marker3D" parent="." unique_id=1554041994]
 transform = Transform3D(0.6270458, 0, -0.7790503, 0, 1, 0, 0.7790503, 0, 0.6270458, 40.84086, -3.0517578e-05, -37.820198)
 
-[node name="MarketAnchor" type="Marker3D" parent="."]
-transform = Transform3D(-0.7679221, 0, -0.6405701, 0, 1, 0, 0.6405701, 0, -0.7679221, -73, 0, -43)
+[node name="MarketAnchor" type="Marker3D" parent="." unique_id=557470284]
+transform = Transform3D(-0.7679221, 0, -0.6405701, 0, 1, 0, 0.6405701, 0, -0.7679221, -67.784515, 0, -45.399845)
 
-[node name="MarketCurvedAnchor" type="Marker3D" parent="."]
-transform = Transform3D(0.566, 0, -0.825, 0, 1, 0, 0.825, 0, 0.566, -95, 0, 47)
+[node name="MarketCurvedAnchor" type="Marker3D" parent="." unique_id=1281978555]
+transform = Transform3D(0.33971602, 0, -0.9053599, 0, 1, 0, 0.7242879, 0, 0.424645, -98.90941, 0, 36.928917)
+
+[node name="StairsAnchor" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -50, 0, 66)
+
+[node name="GateAnchor" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -46, 0, 60)
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=313712687]
 environment = SubResource("Env")
