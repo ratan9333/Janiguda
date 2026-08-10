@@ -47,7 +47,7 @@ const GATE_MAT := preload("res://materials/gate_metal.tres")
 ## The compound (all your placed pieces) stays at ground level y=0. The outside
 ## world - surrounding ground and roads - sits this far BELOW, so the stadium
 ## reads as elevated. A sloped embankment and entrance stairs connect the two.
-const OUTER_LEVEL := -2.6
+const OUTER_LEVEL := -4.0
 
 const LINE_W := 0.12
 const LINE_Y := 0.06
@@ -93,6 +93,7 @@ func _rebuild() -> void:
 	_populate("MarketCurvedAnchor", _build_market)
 	_populate("StairsAnchor", _build_stairs)
 	_populate("GateAnchor", _build_gate)
+	_populate("RoadPlazaAnchor", _build_road_plaza)
 
 
 ## Clear an anchor's old geometry and rebuild it there. Geometry is a child of
@@ -179,7 +180,7 @@ func build_embankment() -> void:
 	if pts.size() < 3:
 		return
 	var group := _group("Embankment")
-	var run := 6.0
+	var run := 8.0
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for i in range(pts.size() - 1):
@@ -321,8 +322,8 @@ func _build_field(anchor: Node) -> void:
 ## Cemented entrance stairs, from the compound edge (y=0) down to the lower
 ## outer world, descending along +Z. ~15 steps, old cement look.
 func _build_stairs(anchor: Node) -> void:
-	var steps := 15
-	var drop := -OUTER_LEVEL           # 2.6 m total drop
+	var drop := -OUTER_LEVEL           # total drop to the road level
+	var steps := maxi(12, int(drop / 0.18))
 	var rise := drop / steps
 	var run := 0.35
 	var width := 7.0
@@ -336,6 +337,13 @@ func _build_stairs(anchor: Node) -> void:
 	for sx in [-1.0, 1.0]:
 		_slab("StairWall", Vector3(0.4, drop + 0.6, steps * run),
 			Vector3(float(sx) * (width * 0.5 + 0.2), OUTER_LEVEL * 0.5, steps * run * 0.5 - run * 0.5), CONCRETE_MAT, anchor)
+
+
+## A broad road / plaza at the LOWER outer level (the road level below the
+## stadium). Place it over the road area at the base of the stairs. It builds at
+## the outer level regardless of the anchor's own height.
+func _build_road_plaza(anchor: Node) -> void:
+	_slab("Plaza", Vector3(50.0, 0.2, 34.0), Vector3(0, OUTER_LEVEL + 0.1, 0), ROAD_MAT, anchor)
 
 
 ## Dark-green metal gate: two posts, a top bar, and two gate leaves.
