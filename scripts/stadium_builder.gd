@@ -52,10 +52,6 @@ const GATE_MAT := preload("res://materials/gate_metal.tres")
 	set(v):
 		elevation_m = v
 		_request_rebuild()
-@export_range(2.0, 24.0) var embankment_run: float = 8.0:
-	set(v):
-		embankment_run = v
-		_request_rebuild()
 
 # Derived each rebuild from elevation_m (the outer world's Y level).
 var OUTER_LEVEL := -4.0
@@ -91,7 +87,7 @@ func _rebuild() -> void:
 	build_ground_base()
 	build_real_roads()
 	build_real_compound()
-	build_embankment()
+	build_retaining_wall()
 	build_boundary_wall()
 	build_boundary_trees()
 
@@ -127,8 +123,8 @@ func _populate(anchor_name: String, builder: Callable) -> void:
 # --- real, fixed ---
 
 func build_ground_base() -> void:
-	# The outer world floor, dropped below the compound so the stadium is raised.
-	_slab("GroundBase", Vector3(2600, 0.4, 2600), Vector3(0, OUTER_LEVEL - 0.2, 0), GROUND_MAT)
+	# The outer world floor (green grass), dropped below the raised compound.
+	_slab("GroundBase", Vector3(2600, 0.4, 2600), Vector3(0, OUTER_LEVEL - 0.2, 0), GRASS_MAT)
 
 
 func build_real_roads() -> void:
@@ -196,30 +192,43 @@ func build_real_compound() -> void:
 	ground.add_child(body)
 
 
-## The sloped earth bank around the compound, from the ground edge (y~0) down to
-## the lower outer world. This is what makes the stadium sit on raised ground.
-func build_embankment() -> void:
+## Vertical cement retaining wall around the compound edge, holding back the
+## raised earth: it drops straight down from the ground (y=0) to the lower outer
+## world. A gap is left at the gate, where the stairs come down.
+func build_retaining_wall() -> void:
 	var pts := _compound_points()
 	if pts.size() < 3:
 		return
-	var group := _group("Embankment")
-	var run := embankment_run
+	var group := _group("RetainingWall")
+	# Leave a gap at the gate for the stairs.
+	var gate_angle := 1000.0
+	var gate := get_node_or_null("GateAnchor")
+	if gate and gate is Node3D:
+		gate_angle = rad_to_deg(atan2(gate.position.z, gate.position.x))
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for i in range(pts.size() - 1):
-		var a := pts[i]; a.y = 0.02
-		var b := pts[i + 1]; b.y = 0.02
-		var oa := a + Vector3(a.x, 0, a.z).normalized() * run; oa.y = OUTER_LEVEL
-		var ob := b + Vector3(b.x, 0, b.z).normalized() * run; ob.y = OUTER_LEVEL
-		for tri in [[a, b, ob], [a, ob, oa], [a, ob, b], [a, oa, ob]]:  # double-sided
+		var a := pts[i]; a.y = 0.1
+		var b := pts[i + 1]; b.y = 0.1
+		var mid := (a + b) * 0.5
+		if gate_angle < 900.0 and absf(_angle_diff(rad_to_deg(atan2(mid.z, mid.x)), gate_angle)) < 9.0:
+			continue
+		# Push the wall face slightly outward so it sits just outside the ground fill.
+		var out := Vector3(mid.x, 0, mid.z).normalized() * 0.4
+		var at := a + out; var bt := b + out
+		var ab := at; ab.y = OUTER_LEVEL
+		var bb := bt; bb.y = OUTER_LEVEL
+		for tri in [[at, bt, bb], [at, bb, ab], [at, bb, bt], [at, ab, bb]]:  # double-sided
 			for p in tri:
-				surface.set_uv(Vector2(p.x * 0.06, p.z * 0.06))
+				surface.set_uv(Vector2((p.x + p.z) * 0.15, p.y * 0.15))
 				surface.add_vertex(p)
 	surface.generate_normals()
 	var mesh := surface.commit()
-	mesh.surface_set_material(0, GROUND_MAT)
+	if mesh == null:
+		return
+	mesh.surface_set_material(0, CONCRETE_MAT)
 	var body := StaticBody3D.new()
-	body.name = "EmbankmentBody"
+	body.name = "RetainingWallBody"
 	var instance := MeshInstance3D.new()
 	instance.mesh = mesh
 	body.add_child(instance)
