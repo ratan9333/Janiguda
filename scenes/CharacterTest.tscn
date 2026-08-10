@@ -1,7 +1,7 @@
-[gd_scene load_steps=8 format=3 uid="uid://c8charwkshop01"]
+[gd_scene format=3 uid="uid://cr17ewaxj6okj"]
 
-[ext_resource type="Script" path="res://scripts/character_preview.gd" id="1_prev"]
-[ext_resource type="Script" path="res://scripts/character_rig.gd" id="2_rig"]
+[ext_resource type="Script" uid="uid://d05217oy468fg" path="res://scripts/character_preview.gd" id="1_prev"]
+[ext_resource type="Script" uid="uid://cp23djsw5asy8" path="res://scripts/character_rig.gd" id="2_rig"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.28, 0.42, 0.58, 1)
@@ -16,17 +16,13 @@ sky_material = SubResource("SkyMat")
 background_mode = 2
 sky = SubResource("Sky")
 ambient_light_source = 3
-ambient_light_energy = 1.0
 tonemap_mode = 3
 tonemap_white = 6.0
 ssao_enabled = true
-ssao_radius = 1.0
 ssao_intensity = 2.2
-ssao_power = 1.5
 ssil_enabled = true
 ssil_intensity = 0.6
 glow_enabled = true
-glow_intensity = 0.3
 glow_bloom = 0.05
 glow_blend_mode = 2
 adjustment_enabled = true
@@ -41,39 +37,39 @@ roughness = 0.95
 material = SubResource("GroundMat")
 size = Vector2(40, 40)
 
-[node name="CharacterTest" type="Node3D"]
+[node name="CharacterTest" type="Node3D" unique_id=553287526]
 script = ExtResource("1_prev")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=2106171909]
 environment = SubResource("Env")
 
-[node name="KeyLight" type="DirectionalLight3D" parent="."]
+[node name="KeyLight" type="DirectionalLight3D" parent="." unique_id=1498558137]
 transform = Transform3D(1, 0, 0, 0, 0.514, 0.857, 0, 0.857, -0.514, 0, 8, -3)
 light_color = Color(1, 0.96, 0.9, 1)
 light_energy = 1.4
 shadow_enabled = true
 shadow_blur = 1.5
 
-[node name="Ground" type="MeshInstance3D" parent="."]
+[node name="Ground" type="MeshInstance3D" parent="." unique_id=1174938465]
 mesh = SubResource("Ground")
 
-[node name="CharacterRig" type="Node3D" parent="."]
+[node name="CharacterRig" type="Node3D" parent="." unique_id=988449209]
 script = ExtResource("2_rig")
 
-[node name="CameraPivot" type="Node3D" parent="."]
+[node name="CameraPivot" type="Node3D" parent="." unique_id=165146906]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.15, 0)
 
-[node name="SpringArm3D" type="SpringArm3D" parent="CameraPivot"]
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraPivot" unique_id=1471169466]
 spring_length = 4.2
 margin = 0.2
 
-[node name="Camera3D" type="Camera3D" parent="CameraPivot/SpringArm3D"]
+[node name="Camera3D" type="Camera3D" parent="CameraPivot/SpringArm3D" unique_id=597983755]
 current = true
 fov = 55.0
 
-[node name="HUD" type="CanvasLayer" parent="."]
+[node name="HUD" type="CanvasLayer" parent="." unique_id=25872281]
 
-[node name="StateLabel" type="Label" parent="HUD"]
+[node name="StateLabel" type="Label" parent="HUD" unique_id=1195641489]
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 700.0

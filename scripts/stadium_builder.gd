@@ -14,6 +14,26 @@ extends Node3D
 ##
 ## Axes: +X = east, +Z = south. 1 unit = 1 metre.
 
+## Tick to make the generated geometry selectable and movable like ordinary
+## nodes. It then appears in the Scene panel and saves with the scene. This is a
+## deliberate mode switch: while it is on NOTHING regenerates, so every slider
+## below stops having any effect and your edits are safe. Untick to throw the
+## baked nodes away and go back to generating from the script.
+##
+## Deliberately declared before the first @export_group, so it stays at the TOP
+## of the Inspector rather than being buried inside a foldout.
+##
+## Ticking alone is not enough: SAVE the scene (Cmd/Ctrl+S) and reload it. Only
+## after that round trip do the pieces become ordinary saved nodes that the
+## editor will let you click and drag.
+@export var bake_for_editing: bool = false:
+	set(v):
+		bake_for_editing = v
+		if v:
+			_bake()
+		else:
+			_request_rebuild()
+
 ## Curved-gallery shape controls. Drag these in the Inspector to experiment:
 ## bigger radius = gentler curve; bigger arc = wraps further around.
 @export_group("Curved gallery shape")
@@ -33,6 +53,18 @@ extends Node3D
 	set(v): gallery_length_m = v; _request_rebuild()
 @export_range(1, 40) var gallery_rows: int = 15:
 	set(v): gallery_rows = v; _request_rebuild()
+
+## A rectangular bite taken out of the raised compound, positioned by dragging
+## CutAnchor in the viewport (rotate it too - the rectangle follows its yaw).
+## The earth inside is removed completely, down to the outer world level, and the
+## retaining wall, boundary wall and trees all follow the new edge.
+@export_group("Ground cut")
+@export var enable_ground_cut: bool = true:
+	set(v): enable_ground_cut = v; _request_rebuild()
+@export_range(2.0, 120.0) var ground_cut_width_m: float = 30.0:
+	set(v): ground_cut_width_m = v; _request_rebuild()
+@export_range(2.0, 120.0) var ground_cut_depth_m: float = 26.0:
+	set(v): ground_cut_depth_m = v; _request_rebuild()
 
 const FIELD_MAT := preload("res://materials/field_dirt.tres")
 const LINE_MAT := preload("res://materials/pitch_lines.tres")
@@ -67,12 +99,40 @@ var _root: Node3D
 
 
 func _ready() -> void:
+	if bake_for_editing:
+		return          # keep the baked nodes that were saved with the scene
 	_rebuild()
 
 
 func _request_rebuild() -> void:
+	if bake_for_editing:
+		return          # baked: regenerating here would wipe hand edits
 	if is_inside_tree():
 		_rebuild()
+
+
+## Hand the generated geometry an owner. Nodes a @tool script creates have no
+## owner, which is why they never show up in the Scene panel and cannot be
+## clicked in the viewport - only the anchors can. Claiming them makes every
+## piece a normal, selectable, movable scene node.
+##
+## Rebuilding is switched off while baked, because _rebuild() frees the lot and
+## regenerates it: without this, moving a wall and then touching any Inspector
+## slider would silently throw the edit away.
+func _bake() -> void:
+	var scene_root: Node = owner if owner != null else self
+	_claim(self, scene_root)
+
+
+func _claim(node: Node, scene_root: Node) -> void:
+	for child in node.get_children():
+		# Never reach inside an instanced scene (Player, Football): claiming its
+		# internals would flatten the instance into this scene on save.
+		if not child.scene_file_path.is_empty():
+			continue
+		if child.owner == null and child != scene_root:
+			child.owner = scene_root      # parent first: owner must be an ancestor
+		_claim(child, scene_root)
 
 
 func _rebuild() -> void:
@@ -166,12 +226,19 @@ func build_real_compound() -> void:
 	var ground := _group("RealGround")
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var origin := pts[0]
-	origin.y = 0.04
-	for i in range(1, pts.size() - 1):
-		var b := pts[i]; b.y = 0.04
-		var c := pts[i + 1]; c.y = 0.04
-		for tri in [[origin, b, c], [origin, c, b]]:
+	# Proper ear-clipping rather than a fan from pts[0]: once CutAnchor carves a
+	# notch the outline is concave, and a fan would fill the notch back in.
+	var flat := PackedVector2Array()
+	for i in range(pts.size() - 1):        # drop the repeated closing point
+		flat.append(Vector2(pts[i].x, pts[i].z))
+	var indices := Geometry2D.triangulate_polygon(flat)
+	if indices.is_empty():
+		return
+	for i in range(0, indices.size(), 3):
+		var a := Vector3(flat[indices[i]].x, 0.04, flat[indices[i]].y)
+		var b := Vector3(flat[indices[i + 1]].x, 0.04, flat[indices[i + 1]].y)
+		var c := Vector3(flat[indices[i + 2]].x, 0.04, flat[indices[i + 2]].y)
+		for tri in [[a, b, c], [a, c, b]]:
 			for p in tri:
 				surface.set_uv(Vector2(p.x * 0.05, p.z * 0.05))
 				surface.add_vertex(p)
@@ -410,20 +477,63 @@ func _build_complex_road(anchor: Node) -> void:
 			_eucalyptus(anchor, Vector3(x, road_top, float(zside) * (width * 0.5 + 1.8)), rng.randf_range(8.0, 12.0))
 
 
-## Indoor sports centre / office at ground level (rear faces the stadium, -Z).
-## Behind it (-Z) is the quiet hideout spot for dealing.
+## Two-storey indoor sports centre, hollow and walk-in (rear faces the stadium,
+## -Z). Behind it (-Z) is the quiet hideout spot for dealing.
+##
+## Built at the ANCHOR's own level, not OUTER_LEVEL, so it stands ON the raised
+## compound and overlaps the stadium ground. The shell is made of separate wall
+## slabs rather than one solid box: the front wall carries a door-height gap, an
+## internal stair climbs to the mid floor, and the mid floor is laid as two
+## strips so the stairwell stays open.
 func _build_sports_complex(anchor: Node) -> void:
-	var base := OUTER_LEVEL
-	_slab("Hall", Vector3(18.0, 5.0, 12.0), Vector3(0, base + 2.5, 0), CONCRETE_MAT, anchor)
-	_slab("Roof", Vector3(19.0, 0.4, 13.0), Vector3(0, base + 5.2, 0), CONCRETE_MAT, anchor)
-	# Entrance + windows on the front (+Z).
-	var door := StandardMaterial3D.new()
-	door.albedo_color = Color("2c3a30")
-	var d := _slab("Door", Vector3(2.4, 3.0, 0.2), Vector3(0, base + 1.5, 6.05), CONCRETE_MAT, anchor)
-	d.get_child(0).material_override = door
-	for wx in [-5.5, -2.5, 2.5, 5.5]:
-		var w := _slab("Window", Vector3(1.6, 1.4, 0.15), Vector3(wx, base + 3.0, 6.05), CONCRETE_MAT, anchor)
-		w.get_child(0).material_override = door
+	var hx := 9.0              # half width, local X
+	var hz := 6.0              # half depth, local Z
+	var wt := 0.3              # wall thickness
+	var floor_h := 3.5         # storey height (player is 1.8 m)
+	var total_h := floor_h * 2.0
+	var door_w := 2.4
+	var door_h := 2.6
+	var well_w := 3.5          # stairwell footprint, hard against the -X wall
+	var well_d := 6.0
+
+	var dark := StandardMaterial3D.new()
+	dark.albedo_color = Color("2c3a30")
+
+	# Shell: back and side walls run the full two storeys.
+	_slab("WallBack", Vector3(hx * 2.0, total_h, wt), Vector3(0, total_h * 0.5, -hz), CONCRETE_MAT, anchor)
+	_slab("WallLeft", Vector3(wt, total_h, hz * 2.0), Vector3(-hx, total_h * 0.5, 0), CONCRETE_MAT, anchor)
+	_slab("WallRight", Vector3(wt, total_h, hz * 2.0), Vector3(hx, total_h * 0.5, 0), CONCRETE_MAT, anchor)
+
+	# Front wall (+Z), split either side of the doorway, with a lintel over it.
+	for sx in [-1.0, 1.0]:
+		_slab("WallFront", Vector3(hx - door_w * 0.5, total_h, wt),
+			Vector3(float(sx) * (hx + door_w * 0.5) * 0.5, total_h * 0.5, hz), CONCRETE_MAT, anchor)
+	_slab("DoorLintel", Vector3(door_w, total_h - door_h, wt),
+		Vector3(0, (door_h + total_h) * 0.5, hz), CONCRETE_MAT, anchor)
+
+	# Mid floor, in two strips so the stairwell corner is left open.
+	var slab_y := floor_h - wt * 0.5
+	_slab("MidFloorA", Vector3(hx * 2.0 - well_w, wt, hz * 2.0),
+		Vector3(-hx + well_w + (hx * 2.0 - well_w) * 0.5, slab_y, 0), CONCRETE_MAT, anchor)
+	_slab("MidFloorB", Vector3(well_w, wt, hz * 2.0 - well_d),
+		Vector3(-hx + well_w * 0.5, slab_y, -hz + well_d + (hz * 2.0 - well_d) * 0.5), CONCRETE_MAT, anchor)
+
+	# Internal stair to the upper floor: solid blocks, so there are no gaps to
+	# catch the capsule. 0.19 m risers are low enough to walk straight up.
+	var steps := 18
+	var rise := floor_h / steps
+	var run := well_d / steps
+	for i in range(steps):
+		var top := (i + 1) * rise
+		_slab("Step%d" % i, Vector3(well_w - wt, top, run),
+			Vector3(-hx + wt + (well_w - wt) * 0.5, top * 0.5, -hz + i * run + run * 0.5), CONCRETE_MAT, anchor)
+
+	_slab("Roof", Vector3(hx * 2.0 + 1.0, 0.4, hz * 2.0 + 1.0), Vector3(0, total_h + 0.2, 0), CONCRETE_MAT, anchor)
+
+	# Upper-floor windows, sitting just proud of the front wall.
+	for wx in [-6.0, -3.0, 3.0, 6.0]:
+		var w := _slab("Window", Vector3(1.6, 1.4, 0.16), Vector3(wx, floor_h + 1.7, hz + 0.06), CONCRETE_MAT, anchor)
+		w.get_child(0).material_override = dark
 
 
 ## Small public toilet block, always closed.
@@ -597,7 +707,72 @@ func _compound_points() -> PackedVector3Array:
 			for coordinate in element.geometry:
 				out.append(_ll_to_world(float(coordinate.lat), float(coordinate.lon)))
 			break
+	return _carve_ground_cut(out)
+
+
+## Subtract CutAnchor's rectangle from the compound outline. Everything that
+## draws the compound - ground fill, retaining wall, boundary wall, boundary
+## trees - reads the outline through here, so one carve moves all of them.
+##
+## The bite must touch the compound EDGE. A rectangle floating entirely inside
+## would need a hole, and the consumers walk a single ring (pts[i] -> pts[i + 1]),
+## which cannot express one; in that case the carve is skipped rather than
+## silently producing a mangled outline.
+func _carve_ground_cut(pts: PackedVector3Array) -> PackedVector3Array:
+	if not enable_ground_cut or pts.size() < 4:
+		return pts
+	var anchor := get_node_or_null("CutAnchor") as Node3D
+	if anchor == null:
+		return pts
+
+	var subject := PackedVector2Array()
+	for i in range(pts.size() - 1):        # drop the repeated closing point
+		subject.append(Vector2(pts[i].x, pts[i].z))
+
+	# CutAnchor's rectangle, in world XZ, following the anchor's yaw.
+	var basis := anchor.global_transform.basis
+	var right := Vector2(basis.x.x, basis.x.z).normalized() * ground_cut_width_m * 0.5
+	var forward := Vector2(basis.z.x, basis.z.z).normalized() * ground_cut_depth_m * 0.5
+	var centre := Vector2(anchor.position.x, anchor.position.z)
+	var rect := PackedVector2Array([
+		centre - right - forward,
+		centre + right - forward,
+		centre + right + forward,
+		centre - right + forward,
+	])
+
+	var pieces := Geometry2D.clip_polygons(subject, rect)
+	if pieces.is_empty():
+		return pts
+
+	# Keep the largest outer ring; discard holes and slivers.
+	var best := PackedVector2Array()
+	var best_area := 0.0
+	for piece in pieces:
+		if Geometry2D.is_polygon_clockwise(piece):
+			continue                        # a hole - not representable here
+		var a := _polygon_area(piece)
+		if a > best_area:
+			best_area = a
+			best = piece
+	if best.size() < 3:
+		return pts
+
+	var y := pts[0].y
+	var out := PackedVector3Array()
+	for p in best:
+		out.append(Vector3(p.x, y, p.y))
+	out.append(Vector3(best[0].x, y, best[0].y))   # re-close the ring
 	return out
+
+
+func _polygon_area(poly: PackedVector2Array) -> float:
+	var total := 0.0
+	for i in range(poly.size()):
+		var a := poly[i]
+		var b := poly[(i + 1) % poly.size()]
+		total += a.x * b.y - b.x * a.y
+	return absf(total) * 0.5
 
 
 func _load_osm():

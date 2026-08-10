@@ -10,7 +10,7 @@ extends CharacterBody3D
 ## imported Mixamo model.
 
 const WALK_SPEED := 2.7
-const RUN_SPEED := 6.6
+const RUN_SPEED := 9.9
 const ACCELERATION := 12.0
 const DECELERATION := 18.0
 const AIR_CONTROL := 0.35

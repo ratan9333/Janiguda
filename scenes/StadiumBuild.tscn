@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://dxeqo1gf33ibw"]
 
 [ext_resource type="Script" uid="uid://dbnfavsk061ga" path="res://scripts/stadium_builder.gd" id="1_build"]
-[ext_resource type="PackedScene" uid="uid://dftasrqegc5cu" path="res://scenes/Player.tscn" id="3_player"]
-[ext_resource type="PackedScene" uid="uid://bvlnr1eojmevo" path="res://scenes/Football.tscn" id="4_ball"]
+[ext_resource type="PackedScene" uid="uid://xghlco4r13pc" path="res://scenes/Player.tscn" id="3_player"]
+[ext_resource type="PackedScene" uid="uid://bc3k6o17wfbx4" path="res://scenes/Football.tscn" id="4_ball"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
 sky_top_color = Color(0.32, 0.5, 0.68, 1)
@@ -27,6 +27,7 @@ adjustment_contrast = 1.04
 adjustment_saturation = 1.05
 
 [node name="StadiumBuild" type="Node3D" unique_id=282938332]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5570259, 0)
 script = ExtResource("1_build")
 gallery_curve_radius = 200.0
 gallery_curve_arc_deg = 10.186
@@ -50,13 +51,16 @@ transform = Transform3D(0.6270458, 0, -0.7790503, 0, 1, 0, 0.7790503, 0, 0.62704
 transform = Transform3D(-0.7679221, 0, -0.6405701, 0, 1, 0, 0.6405701, 0, -0.7679221, -67.784515, 0, -45.399845)
 
 [node name="MarketCurvedAnchor" type="Marker3D" parent="." unique_id=1281978555]
-transform = Transform3D(0.33971602, 0, -0.9053599, 0, 1, 0, 0.7242879, 0, 0.424645, -98.90941, 0, 36.928917)
+transform = Transform3D(0.33971602, 0, -0.90535986, 0, 1, 0, 0.7242879, 0, 0.42464498, -98.90941, 0, 36.928917)
 
 [node name="StairsAnchor" type="Marker3D" parent="." unique_id=2100032276]
-transform = Transform3D(0.66855085, 0, -0.7436664, 0, 1, 0, 0.7436664, 0, 0.66855085, -62.858047, 0, 74.1001)
+transform = Transform3D(0.4816772, 0, -0.7256061, 0, 1, 0, 0.50792426, 0, 0.6881103, -61.96194, 0.15524817, 73.28761)
 
-[node name="StairsAnchor2" type="Marker3D" parent="."]
+[node name="StairsAnchor2" type="Marker3D" parent="." unique_id=1591116188]
 transform = Transform3D(0.66855085, 0, -0.7436664, 0, 1, 0, 0.7436664, 0, 0.66855085, -92, 0, 56)
+
+[node name="CutAnchor" type="Marker3D" parent="." unique_id=1158019656]
+transform = Transform3D(0.5838, 0, 0.8121, 0, 1, 0, -0.8121, 0, 0.5838, -78.8, 0, 78.15)
 
 [node name="GateAnchor" type="Marker3D" parent="." unique_id=1814765923]
 transform = Transform3D(0.69165355, 0, -0.7222294, 0, 1, 0, 0.7222294, 0, 0.69165355, -61.68828, 0, 73.00574)
@@ -67,16 +71,16 @@ transform = Transform3D(-0.37044042, 0, 0.7079839, 0, 1, 0, -0.4719893, 0, -0.55
 [node name="ComplexRoadAnchor" type="Marker3D" parent="." unique_id=182026669]
 transform = Transform3D(0.49654204, 0, -0.91037464, 0, 1, 0, 1.0924497, 0, 0.413785, -108.529724, 0, 34.658325)
 
-[node name="SportsComplexAnchor" type="Marker3D" parent="."]
-transform = Transform3D(0.6916, 0, -0.7222, 0, 1, 0, 0.7222, 0, 0.6916, -42, 0, 88)
+[node name="SportsComplexAnchor" type="Marker3D" parent="." unique_id=1623795754]
+transform = Transform3D(0.77614987, 0, -0.6304561, 0, 1, 0, 0.6304561, 0, 0.77614987, -58.46927, 0, 91.04616)
 
-[node name="ToiletAnchor" type="Marker3D" parent="."]
-transform = Transform3D(0.6916, 0, -0.7222, 0, 1, 0, 0.7222, 0, 0.6916, -56, 0, 92)
+[node name="ToiletAnchor" type="Marker3D" parent="." unique_id=171125489]
+transform = Transform3D(2.6328356, 0, 0.9587435, 0, 1, 0, -1.4381154, 0, 1.7552238, -78.148605, -0.087310314, 83.23729)
 
-[node name="WelcomeArchAnchor" type="Marker3D" parent="."]
+[node name="WelcomeArchAnchor" type="Marker3D" parent="." unique_id=745052625]
 transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -104, 0, 8)
 
-[node name="RoundaboutAnchor" type="Marker3D" parent="."]
+[node name="RoundaboutAnchor" type="Marker3D" parent="." unique_id=691045674]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -52, 0, 84)
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=313712687]
@@ -106,3 +110,7 @@ theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 6
 text = "WASD move · mouse look · Shift run · Space jump · F kick the ball · Esc free mouse"
+
+[node name="CSGBox3D" type="CSGBox3D" parent="." unique_id=108145941]
+transform = Transform3D(0.7684396, 0, -0.6399223, 0, 1, 0, 0.6399223, 0, 0.7684396, -68.137344, 1.0523815, 66.98622)
+size = Vector3(11.882, 2.302, 0.2)
