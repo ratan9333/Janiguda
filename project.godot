@@ -10,17 +10,15 @@ config_version=5
 
 [application]
 
-config/name="Semiliguda"
-run/main_scene="res://scenes/StadiumBuild.tscn"
+config/name="Janiguda"
+config/description="Real-world map of Sunabeda, Odisha, built from SRTM terrain, Esri imagery, OSM roads and Overture building footprints."
+run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7")
 
 [display]
 
-window/size/viewport_width=1280
-window/size/viewport_height=720
-window/size/window_width_override=1280
-window/size/window_height_override=720
-window/stretch/mode="canvas_items"
+window/size/viewport_width=1600
+window/size/viewport_height=900
 
 [physics]
 

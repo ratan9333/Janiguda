@@ -1,6 +1,0 @@
-[gd_scene format=3 uid="uid://i6nsibjlitrh"]
-
-[ext_resource type="Script" uid="uid://d4nio0ik5ddvi" path="res://scripts/hal_main.gd" id="1_halmain"]
-
-[node name="HalMain" type="Node3D" unique_id=999871565]
-script = ExtResource("1_halmain")
